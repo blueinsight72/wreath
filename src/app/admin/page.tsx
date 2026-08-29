@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { formatKRW } from "@/lib/format";
 import { ORDERS, ORDER_STATUS_LABEL, type Order } from "@/lib/ops-data";
+import { VenueRejectionCard } from "@/components/VenueRejectionCard";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { useCurrentTenant } from "@/lib/tenant-context";
 
@@ -30,6 +31,9 @@ function exceptionsOf(order: Order) {
   }
   if (order.venueName === "빈소 미정") {
     list.push({ label: "빈소 미정", tone: "warn" });
+  }
+  if (order.supplierReport) {
+    list.push({ label: "공급사 반입 불가 회신 — 상품 변경 필요", tone: "danger" });
   }
   if (order.venueIssue) {
     list.push({ label: "반입 이슈 보고", tone: "warn" });
@@ -245,6 +249,8 @@ export default function AdminDashboardPage() {
                   처리됩니다.
                 </p>
               )}
+
+              {order.supplierReport && <VenueRejectionCard order={order} />}
             </Card>
           ))}
         </div>

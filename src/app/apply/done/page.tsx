@@ -86,6 +86,25 @@ export default function DonePage() {
       ? `${venue.name}${draft.roomNo ? ` ${draft.roomNo}` : ""}`
       : `${draft.manualVenueName}${draft.roomNo ? ` ${draft.roomNo}` : ""}`;
 
+  // 발주서에 반입 규정을 함께 실어 보낸다.
+  // 사전 판정은 장례식장 DB 로 하되, 현장이 다르면 공급사가 회신하게 하는 2차 방어선이다.
+  const venueRuleText = draft.venueUndecided
+    ? "빈소 확정 후 조회"
+    : !venue
+      ? "마스터에 없는 장소 — 공급사 현장 확인 필요"
+      : venue.wreathAllowed === false
+        ? `반입 불가 — ${venue.restrictionReason ?? "사유 미기재"}`
+        : [
+            venue.wreathAllowed === null ? "반입 여부 확인 필요" : "반입 가능",
+            venue.entryHours ? `반입 ${venue.entryHours}` : null,
+            venue.entryFee > 0
+              ? `반입료 ${venue.entryFee.toLocaleString("ko-KR")}원`
+              : null,
+            venue.restrictionReason,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+
   const stages = buildStages(auto, draft.venueUndecided, cancelled);
 
   return (
@@ -189,6 +208,7 @@ export default function DonePage() {
             <Row label="애도 문구" value={ribbon.phrase} />
             <Row label="발신 명의" value={ribbon.sender} />
             <Row label="수령지" value={venueText} />
+            <Row label="반입 규정" value={venueRuleText} />
             <Row
               label="도착 희망"
               value={
@@ -232,6 +252,10 @@ export default function DonePage() {
       </div>
 
       <p className="mt-6 text-[11.5px] leading-relaxed text-ink-3">
+        반입 가능 여부는 장례식장 DB 로 발주 전에 판정합니다. 현장 사정이 다르면
+        공급사가 회신하며, 이 경우 총무팀이 대체 상품으로 변경합니다.
+      </p>
+      <p className="mt-2 text-[11.5px] leading-relaxed text-ink-3">
         발주 · 판정 근거 · 승인 이력 · 배송 증빙은 이 신청번호로 영구 연결되어
         보관됩니다.
       </p>

@@ -28,6 +28,19 @@ export interface ApprovalReason {
   detail: string;
 }
 
+/**
+ * 공급사가 현장에서 반입 불가를 알려온 회신 (2차 방어선).
+ *
+ * 반입 가능 여부는 기본적으로 장례식장 DB 로 발주 전에 판정한다. 다만 DB 가
+ * 검증되어 있어도 현장 사정으로 막히는 경우가 있어, 발주서에 반입 규정을 실어
+ * 보내고 공급사가 다르면 회신하도록 한다. 회신이 오면 상품을 바꿀 수 있다.
+ */
+export interface SupplierVenueReport {
+  reportedAt: string;
+  supplierName: string;
+  reason: string;
+}
+
 export interface Order {
   id: string;
   createdAt: string;
@@ -61,6 +74,8 @@ export interface Order {
   proofPhoto: boolean;
   /** 현장 반입 이슈 보고 (F8-4) */
   venueIssue: boolean;
+  /** 공급사 반입 불가 회신 — 있으면 상품 변경 후 재확정이 필요하다 */
+  supplierReport: SupplierVenueReport | null;
   /** 접수까지 걸린 시간 (분) — 미접수면 null */
   acceptedInMin: number | null;
   /** 시스템 밖 발주를 사후 등록한 건 (F5-7) */
@@ -105,6 +120,7 @@ export const ORDERS: Order[] = [
     proofRequired: true,
     proofPhoto: false,
     venueIssue: false,
+    supplierReport: null,
     acceptedInMin: null,
     offSystem: false,
   },
@@ -144,6 +160,7 @@ export const ORDERS: Order[] = [
     proofRequired: true,
     proofPhoto: false,
     venueIssue: false,
+    supplierReport: null,
     acceptedInMin: null,
     offSystem: false,
   },
@@ -174,7 +191,13 @@ export const ORDERS: Order[] = [
     proofRequired: false,
     proofPhoto: false,
     venueIssue: false,
-    acceptedInMin: null,
+    supplierReport: {
+      reportedAt: "2026-08-29 10:02",
+      supplierName: "전국화훼중계망㈜",
+      reason:
+        "현장 확인 결과 금일부터 생화 화환 반입을 받지 않는다고 합니다. 쌀화환·근조기는 반입 가능합니다.",
+    },
+    acceptedInMin: 6,
     offSystem: false,
   },
   {
@@ -204,6 +227,7 @@ export const ORDERS: Order[] = [
     proofRequired: true,
     proofPhoto: false,
     venueIssue: false,
+    supplierReport: null,
     acceptedInMin: 12,
     offSystem: false,
   },
@@ -234,6 +258,7 @@ export const ORDERS: Order[] = [
     proofRequired: true,
     proofPhoto: true,
     venueIssue: true,
+    supplierReport: null,
     acceptedInMin: 8,
     offSystem: false,
   },
@@ -264,6 +289,7 @@ export const ORDERS: Order[] = [
     proofRequired: false,
     proofPhoto: false,
     venueIssue: false,
+    supplierReport: null,
     acceptedInMin: 31,
     offSystem: true,
   },

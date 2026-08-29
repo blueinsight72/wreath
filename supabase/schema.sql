@@ -183,6 +183,9 @@ create table if not exists condolence_order (
   proof_required    boolean not null default false,
   proof_photo       boolean not null default false,
   venue_issue       boolean not null default false,
+  -- 공급사 반입 불가 회신 (2차 방어선). 사전 판정은 funeral_venue 로 한다.
+  supplier_report_at     timestamptz,
+  supplier_report_reason text,
   accepted_in_min   int,
   off_system        boolean not null default false
 );
