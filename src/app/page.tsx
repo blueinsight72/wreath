@@ -41,7 +41,7 @@ const ENTRIES: Entry[] = [
     title: "공급사 발주 어드민",
     desc: "신규 발주 접수, 상태 관리, 온보딩.",
     role: "공급사",
-    ready: false,
+    ready: true,
   },
   {
     href: "/admin",

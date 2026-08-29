@@ -220,3 +220,78 @@ export function LinkButton({
     </Link>
   );
 }
+
+/* ── 운영 · 어드민 셸 (S7~S11) ─────────────────────── */
+
+export function DeskShell({
+  title,
+  subtitle,
+  back,
+  aside,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  back?: { href: string; label?: string };
+  aside?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-[980px] px-5 py-6 sm:px-8 sm:py-10">
+      {back && (
+        <Link
+          href={back.href}
+          className="mb-3 inline-flex items-center gap-1 text-[13px] text-ink-3 transition hover:text-ink"
+        >
+          <span aria-hidden>←</span>
+          {back.label ?? "뒤로"}
+        </Link>
+      )}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[24px] font-bold tracking-tight text-ink">{title}</h1>
+          {subtitle && (
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-2">
+              {subtitle}
+            </p>
+          )}
+        </div>
+        {aside}
+      </div>
+      <div className="mt-7">{children}</div>
+    </div>
+  );
+}
+
+/** 지표 타일 */
+export function Stat({
+  label,
+  value,
+  note,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  tone?: Tone | "neutral";
+}) {
+  const valueTone =
+    tone === "neutral"
+      ? "text-ink"
+      : tone === "ok"
+        ? "text-ok"
+        : tone === "warn"
+          ? "text-warn"
+          : tone === "danger"
+            ? "text-danger"
+            : "text-brand";
+  return (
+    <div className="rounded-xl border border-line bg-surface p-4">
+      <p className="text-[12px] font-semibold text-ink-3">{label}</p>
+      <p className={`mt-1.5 text-[22px] font-bold tabular-nums ${valueTone}`}>
+        {value}
+      </p>
+      {note && <p className="mt-0.5 text-[11.5px] text-ink-3">{note}</p>}
+    </div>
+  );
+}
