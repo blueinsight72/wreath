@@ -59,6 +59,14 @@ const ENTRIES: Entry[] = [
     role: "총무 · 운영",
     ready: true,
   },
+  {
+    href: "/admin/policies",
+    screen: "S12 · S13",
+    title: "운영 백오피스",
+    desc: "경조 규정 등록·결재, 감사 제출용 통제 작동 리포트.",
+    role: "관리자 · 감사 · 법무",
+    ready: true,
+  },
 ];
 
 export default function Home() {
