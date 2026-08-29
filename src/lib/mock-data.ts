@@ -1,10 +1,13 @@
 // 목업 데이터 — 백엔드 연동 전까지 화면 검증용
 import type {
+  DeptBudget,
   Employee,
   EventType,
   ExternalRecipient,
   FuneralVenue,
+  PolicyRule,
   RelationType,
+  WreathProduct,
 } from "./types";
 
 /** 현재 로그인 사용자 (임시 고정) */
@@ -240,4 +243,99 @@ export function findEventType(code: string) {
 
 export function findRelation(code: string) {
   return RELATION_TYPES.find((r) => r.code === code) ?? null;
+}
+
+/* ── 사내 경조 규정 (S2) ───────────────────────────── */
+
+/** 규정 버전 — 판정 근거 스냅샷에 기록된다 (F1-7, F1-9) */
+export const POLICY_VERSION = "v3.2 (2026-03-01 시행)";
+export const POLICY_APPROVED_AT = "2026-02-20";
+export const POLICY_APPROVED_BY = "CFO 한지수";
+
+/** 청탁금지법 화환 · 조화 가액범위 (R1 하드리밋) */
+export const LEGAL_WREATH_LIMIT = 100000;
+
+export const POLICY_RULES: PolicyRule[] = [
+  // 자사 임직원 — 직급별 차등
+  { id: "P-101", eventTypeCode: "PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: "EXEC", minTenureMonths: 0, grade: "A", wreathLimit: 300000 },
+  { id: "P-102", eventTypeCode: "PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: "SENIOR", minTenureMonths: 12, grade: "B", wreathLimit: 200000 },
+  { id: "P-103", eventTypeCode: "PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: "STAFF", minTenureMonths: 12, grade: "C", wreathLimit: 150000 },
+  { id: "P-104", eventTypeCode: "PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "D", wreathLimit: 100000 },
+
+  { id: "P-111", eventTypeCode: "SPOUSE_PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: "EXEC", minTenureMonths: 0, grade: "A", wreathLimit: 300000 },
+  { id: "P-112", eventTypeCode: "SPOUSE_PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 12, grade: "C", wreathLimit: 150000 },
+  { id: "P-113", eventTypeCode: "SPOUSE_PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "D", wreathLimit: 100000 },
+
+  { id: "P-121", eventTypeCode: "SPOUSE_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "A", wreathLimit: 300000 },
+  { id: "P-131", eventTypeCode: "CHILD_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "A", wreathLimit: 300000 },
+
+  { id: "P-141", eventTypeCode: "GRANDPARENT_DEATH", targetKind: "EMPLOYEE", rankTier: "EXEC", minTenureMonths: 0, grade: "C", wreathLimit: 150000 },
+  { id: "P-142", eventTypeCode: "GRANDPARENT_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "D", wreathLimit: 100000 },
+
+  { id: "P-151", eventTypeCode: "SIBLING_DEATH", targetKind: "EMPLOYEE", rankTier: "EXEC", minTenureMonths: 0, grade: "C", wreathLimit: 150000 },
+  { id: "P-152", eventTypeCode: "SIBLING_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "D", wreathLimit: 100000 },
+
+  // 거래처 · 외부 — 직급 축 없이 경조 유형별 단일 상한
+  { id: "P-201", eventTypeCode: "PARENT_DEATH", targetKind: "EXTERNAL", rankTier: null, minTenureMonths: 0, grade: "C", wreathLimit: 150000 },
+  { id: "P-202", eventTypeCode: "SPOUSE_PARENT_DEATH", targetKind: "EXTERNAL", rankTier: null, minTenureMonths: 0, grade: "C", wreathLimit: 150000 },
+  { id: "P-203", eventTypeCode: "SPOUSE_DEATH", targetKind: "EXTERNAL", rankTier: null, minTenureMonths: 0, grade: "B", wreathLimit: 200000 },
+  { id: "P-204", eventTypeCode: "CHILD_DEATH", targetKind: "EXTERNAL", rankTier: null, minTenureMonths: 0, grade: "B", wreathLimit: 200000 },
+  { id: "P-205", eventTypeCode: "GRANDPARENT_DEATH", targetKind: "EXTERNAL", rankTier: null, minTenureMonths: 0, grade: "D", wreathLimit: 100000 },
+  // SIBLING_DEATH 는 거래처 규정에 없음 — 규정 외 → 승인 경로 (F1 판정 로직)
+];
+
+export const WREATH_PRODUCTS: WreathProduct[] = [
+  { id: "pd-a1", name: "근조화환 3단 프리미엄", grade: "A", price: 300000, kind: "WREATH", freshGuarantee: true, leadTimeHours: 4, desc: "국화 3단 · 대형 리본 2매" },
+  { id: "pd-b1", name: "근조화환 3단 고급", grade: "B", price: 200000, kind: "WREATH", freshGuarantee: true, leadTimeHours: 3, desc: "국화 3단 · 리본 2매" },
+  { id: "pd-c1", name: "근조화환 3단 기본", grade: "C", price: 150000, kind: "WREATH", freshGuarantee: true, leadTimeHours: 3, desc: "국화 3단 · 리본 2매" },
+  { id: "pd-d1", name: "근조화환 2단", grade: "D", price: 100000, kind: "WREATH", freshGuarantee: true, leadTimeHours: 2, desc: "국화 2단 · 리본 2매" },
+  { id: "pd-e1", name: "근조화환 소형", grade: "E", price: 80000, kind: "WREATH", freshGuarantee: true, leadTimeHours: 2, desc: "국화 소형 · 리본 1매" },
+
+  // 대체 상품 — 화환 반입이 거부되는 장소용 (F3-5)
+  { id: "pd-r1", name: "근조 쌀화환 20kg", grade: "B", price: 200000, kind: "ALT", freshGuarantee: true, leadTimeHours: 4, desc: "기부 · 유족 전달 가능" },
+  { id: "pd-r2", name: "근조 쌀화환 10kg", grade: "C", price: 150000, kind: "ALT", freshGuarantee: true, leadTimeHours: 4, desc: "기부 · 유족 전달 가능" },
+  { id: "pd-r3", name: "조화 바구니", grade: "D", price: 100000, kind: "ALT", freshGuarantee: true, leadTimeHours: 3, desc: "실내 비치형 · 반입 제한 회피" },
+  { id: "pd-r4", name: "근조기 (근조 현수기)", grade: "E", price: 80000, kind: "ALT", freshGuarantee: true, leadTimeHours: 2, desc: "화환 반입 거부 장소 대응" },
+];
+
+export const DEPT_BUDGETS: DeptBudget[] = [
+  { costCenter: "CC-1200", deptName: "경영지원팀", allocated: 3000000, used: 2760000 },
+  { costCenter: "CC-2100", deptName: "영업본부", allocated: 6000000, used: 3100000 },
+  { costCenter: "CC-3100", deptName: "플랫폼개발팀", allocated: 2000000, used: 450000 },
+  { costCenter: "CC-1300", deptName: "재무팀", allocated: 2000000, used: 900000 },
+];
+
+/** 기발송 이력 — 중복 발송 검사용 (F9) */
+export interface SentRecord {
+  id: string;
+  targetId: string;
+  eventTypeCode: string;
+  senderTitle: string;
+  /** 부서명은 조회 권한 문제로 화면에서 마스킹된다 (F9-2, F13-2) */
+  senderDept: string;
+  sentAt: string;
+  amount: number;
+}
+
+export const SENT_RECORDS: SentRecord[] = [
+  {
+    id: "sr-001",
+    targetId: "emp-002",
+    eventTypeCode: "PARENT_DEATH",
+    senderTitle: "회사 명의",
+    senderDept: "경영지원팀",
+    sentAt: "2026-08-28 14:20",
+    amount: 300000,
+  },
+];
+
+export function findBudget(costCenter: string): DeptBudget {
+  return (
+    DEPT_BUDGETS.find((b) => b.costCenter === costCenter) ?? {
+      costCenter,
+      deptName: "미지정",
+      allocated: 0,
+      used: 0,
+    }
+  );
 }

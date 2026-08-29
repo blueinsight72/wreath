@@ -118,6 +118,8 @@ export interface RequestDraft {
   manualVenueName: string;
   roomNo: string;
   note: string;
+  /** S2에서 선택한 상품 */
+  productId: string | null;
 }
 
 export const EMPTY_DRAFT: RequestDraft = {
@@ -135,4 +137,108 @@ export const EMPTY_DRAFT: RequestDraft = {
   manualVenueName: "",
   roomNo: "",
   note: "",
+  productId: null,
 };
+
+/* ── 규정 판정 · 상품 (S2) ─────────────────────────── */
+
+/** 직급 등급 — 규정표 조건 축 */
+export type RankTier = "EXEC" | "SENIOR" | "STAFF";
+
+export const RANK_TIER_LABEL: Record<RankTier, string> = {
+  EXEC: "임원",
+  SENIOR: "책임 · 선임",
+  STAFF: "사원",
+};
+
+/** 사내 경조 규정 한 줄 (CondolencePolicy) */
+export interface PolicyRule {
+  id: string;
+  eventTypeCode: string;
+  targetKind: TargetKind;
+  /** null 이면 직급 무관 */
+  rankTier: RankTier | null;
+  /** 이 개월 수 이상 재직 시 적용 */
+  minTenureMonths: number;
+  grade: string;
+  wreathLimit: number;
+}
+
+/** 화환 상품 */
+export interface WreathProduct {
+  id: string;
+  name: string;
+  grade: string;
+  price: number;
+  /** 화환 / 대체 상품 (반입 불가 장소용) */
+  kind: "WREATH" | "ALT";
+  /** 생화 · 신품 확약 (F3-4) */
+  freshGuarantee: boolean;
+  /** 제작 + 배송 소요 시간 */
+  leadTimeHours: number;
+  desc: string;
+}
+
+/** 부서 경조 예산 (F11-4) */
+export interface DeptBudget {
+  costCenter: string;
+  deptName: string;
+  /** 연간 배정액 */
+  allocated: number;
+  /** 집행액 */
+  used: number;
+}
+
+/** 계정과목 */
+export type AccountCode = "WELFARE" | "ENTERTAINMENT";
+
+export const ACCOUNT_LABEL: Record<AccountCode, string> = {
+  WELFARE: "복리후생비",
+  ENTERTAINMENT: "접대비",
+};
+
+/** 승인 경로 전환 사유 */
+export interface PolicyFlag {
+  code: string;
+  label: string;
+  detail: string;
+  tone: "info" | "warn" | "danger";
+}
+
+/** 판정 근거 스냅샷 (F1-8) — 감사 · 양벌규정 면책 입증자료 */
+export interface DecisionSnapshot {
+  policyVersion: string;
+  policyApprovedAt: string;
+  policyApprovedBy: string;
+  matchedRuleId: string | null;
+  conditions: { label: string; value: string }[];
+  limitFormula: string;
+  regimeBasis: string;
+  decidedAt: string;
+}
+
+/** 판정 결과 */
+export interface PolicyDecision {
+  regime: Regime;
+  /** 사내 규정 상한 — null 이면 규정 외 */
+  internalLimit: number | null;
+  /** 법정 하드리밋 — R1 에만 적용 */
+  legalLimit: number | null;
+  /** MIN(사내, 법정) */
+  finalLimit: number | null;
+  grade: string | null;
+  account: AccountCode;
+  budget: DeptBudget;
+  /** 자동승인 가능 여부 (상품 선택 전 기준) */
+  autoApprovable: boolean;
+  flags: PolicyFlag[];
+  snapshot: DecisionSnapshot;
+}
+
+/** 선택 상품까지 반영한 최종 실행 판정 */
+export type ExecutionResult = "AUTO_APPROVE" | "NEED_APPROVAL" | "BLOCKED";
+
+export interface ExecutionDecision {
+  result: ExecutionResult;
+  reasons: PolicyFlag[];
+}
