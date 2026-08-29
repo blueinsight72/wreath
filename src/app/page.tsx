@@ -20,6 +20,14 @@ const ENTRIES: Entry[] = [
     ready: true,
   },
   {
+    href: "/apply/notice",
+    screen: "S14",
+    title: "부고 인식으로 신청",
+    desc: "부고 문자를 붙여넣거나 캡쳐를 올리면 신청서를 대신 채웁니다.",
+    role: "임직원 · 임원",
+    ready: true,
+  },
+  {
     href: "/approvals",
     screen: "S5",
     title: "승인 요청 처리",

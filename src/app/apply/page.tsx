@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { EmployeePicker, RecipientPicker } from "@/components/TargetPicker";
@@ -12,8 +13,14 @@ import {
   Section,
   StepBar,
 } from "@/components/ui";
-import { saveDraft } from "@/lib/draft";
-import { EVENT_TYPES, RELATION_TYPES } from "@/lib/mock-data";
+import { saveDraft, useDraft } from "@/lib/draft";
+import {
+  EVENT_TYPES,
+  RELATION_TYPES,
+  findEmployee,
+  findRecipient,
+  findVenue,
+} from "@/lib/mock-data";
 import {
   EMPTY_DRAFT,
   RELIGION_LABEL,
@@ -29,14 +36,29 @@ type Errors = Partial<Record<keyof RequestDraft, string>>;
 export default function ApplyPage() {
   const router = useRouter();
 
-  const [draft, setDraft] = useState<RequestDraft>(EMPTY_DRAFT);
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [recipient, setRecipient] = useState<ExternalRecipient | null>(null);
-  const [venue, setVenue] = useState<FuneralVenue | null>(null);
+  const stored = useDraft();
+  const [edits, setEdits] = useState<Partial<RequestDraft>>({});
   const [errors, setErrors] = useState<Errors>({});
 
+  // 부고 인식(S14)이 채워 둔 초안이 있으면 그대로 이어서 작성한다
+  const draft: RequestDraft = useMemo(
+    () => ({ ...EMPTY_DRAFT, ...(stored ?? {}), ...edits }),
+    [stored, edits]
+  );
+
   const patch = (values: Partial<RequestDraft>) =>
-    setDraft((prev) => ({ ...prev, ...values }));
+    setEdits((prev) => ({ ...prev, ...values }));
+
+  // 선택된 항목은 초안의 id에서 파생시킨다 — 별도 상태를 두면 프리필과 어긋난다
+  const employee =
+    draft.targetKind === "EMPLOYEE" ? findEmployee(draft.targetId) : null;
+  const recipient =
+    draft.targetKind === "EXTERNAL" ? findRecipient(draft.targetId) : null;
+  const venue = findVenue(draft.venueId);
+  const setEmployee = (e: Employee | null) => patch({ targetId: e?.id ?? null });
+  const setRecipient = (r: ExternalRecipient | null) =>
+    patch({ targetId: r?.id ?? null });
+  const setVenue = (v: FuneralVenue | null) => patch({ venueId: v?.id ?? null });
 
   const isExternal = draft.targetKind === "EXTERNAL";
 
@@ -136,11 +158,7 @@ export default function ApplyPage() {
       first?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    saveDraft({
-      ...draft,
-      targetId: isExternal ? (recipient?.id ?? null) : (employee?.id ?? null),
-      venueId: venue?.id ?? null,
-    });
+    saveDraft(draft);
     router.push("/apply/policy");
   }
 
@@ -153,23 +171,48 @@ export default function ApplyPage() {
     >
       <StepBar current={1} total={4} />
 
+      <Link
+        href="/apply/notice"
+        className="mb-6 flex items-center gap-3 rounded-xl border border-brand/20 bg-brand-soft p-4 transition hover:border-brand"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-bold text-brand">
+            부고 문자 · 캡쳐로 자동 입력
+          </span>
+          <span className="mt-0.5 block text-[12.5px] leading-relaxed text-brand/80">
+            받으신 부고를 붙여넣거나 캡쳐를 올리면 아래 항목을 대신 채웁니다.
+          </span>
+        </span>
+        <span className="shrink-0 text-brand" aria-hidden>
+          →
+        </span>
+      </Link>
+
       <Section title="누구의 경조사입니까?">
         <div className="grid grid-cols-2 gap-2">
           <SegmentButton
             active={!isExternal}
-            onClick={() => {
-              patch({ targetKind: "EMPLOYEE", relationCode: "" });
-              setRecipient(null);
-            }}
+            onClick={() =>
+              patch({
+                targetKind: "EMPLOYEE",
+                relationCode: "",
+                targetId: null,
+                manualTargetName: "",
+                manualTargetOrg: "",
+              })
+            }
           >
             자사 임직원
           </SegmentButton>
           <SegmentButton
             active={isExternal}
-            onClick={() => {
-              patch({ targetKind: "EXTERNAL", relationCode: "CLIENT" });
-              setEmployee(null);
-            }}
+            onClick={() =>
+              patch({
+                targetKind: "EXTERNAL",
+                relationCode: "CLIENT",
+                targetId: null,
+              })
+            }
           >
             거래처 · 외부
           </SegmentButton>
@@ -305,15 +348,18 @@ export default function ApplyPage() {
             type="checkbox"
             className="mt-0.5 size-4 accent-[var(--color-brand)]"
             checked={draft.venueUndecided}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              if (checked) setVenue(null);
+            onChange={(e) =>
               patch(
-                checked
-                  ? { venueUndecided: true, manualVenueName: "", roomNo: "" }
+                e.target.checked
+                  ? {
+                      venueUndecided: true,
+                      venueId: null,
+                      manualVenueName: "",
+                      roomNo: "",
+                    }
                   : { venueUndecided: false }
-              );
-            }}
+              )
+            }
           />
           <span>
             <span className="block text-[14px] font-semibold text-ink">
