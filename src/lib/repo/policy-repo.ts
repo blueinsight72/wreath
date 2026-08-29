@@ -3,13 +3,8 @@
 // 규정 데이터 접근 계층.
 // Supabase 가 설정되어 있으면 실제 테이블을, 아니면 목업을 돌려준다.
 // 화면은 어느 쪽인지 신경 쓰지 않고 같은 타입만 다룬다.
-import {
-  POLICY_APPROVED_AT,
-  POLICY_APPROVED_BY,
-  POLICY_RULES,
-  POLICY_VERSION,
-  WREATH_PRODUCTS,
-} from "@/lib/mock-data";
+import { WREATH_PRODUCTS } from "@/lib/mock-data";
+import { findTenant, rulesOf } from "@/lib/tenants";
 import { getSupabase, type DataSource } from "@/lib/supabase";
 import type { PolicyRule, RankTier, TargetKind, WreathProduct } from "@/lib/types";
 
@@ -34,6 +29,7 @@ export interface PolicyVersion {
 
 export interface PolicyBundle {
   source: DataSource;
+  tenantId: string;
   versions: PolicyVersion[];
   /** versionId → 규정표 */
   rulesByVersion: Record<string, PolicyRule[]>;
@@ -43,50 +39,49 @@ export interface PolicyBundle {
 
 /* ── 목업 ─────────────────────────────────────────────────── */
 
-const MOCK_ACTIVE_ID = "mock-v32";
+function mockBundle(tenantId: string, error: string | null = null): PolicyBundle {
+  const tenant = findTenant(tenantId);
+  const activeId = `${tenantId}-active`;
+  const draftId = `${tenantId}-draft`;
 
-function mockBundle(error: string | null = null): PolicyBundle {
   const versions: PolicyVersion[] = [
     {
-      id: MOCK_ACTIVE_ID,
-      label: POLICY_VERSION.replace(/\s*\(.*\)$/, ""),
+      id: activeId,
+      label: tenant.policyVersion,
       status: "ACTIVE",
-      effectiveFrom: "2026-03-01",
-      approvedAt: POLICY_APPROVED_AT,
-      approvedBy: POLICY_APPROVED_BY,
-      note: "거래처 상한 신설",
+      effectiveFrom: tenant.policyApprovedAt,
+      approvedAt: tenant.policyApprovedAt,
+      approvedBy: tenant.policyApprovedBy,
+      note: tenant.note,
     },
     {
-      id: "mock-v31",
-      label: "v3.1",
-      status: "ARCHIVED",
-      effectiveFrom: "2025-07-01",
-      approvedAt: "2025-06-18",
-      approvedBy: "CFO 한지수",
-      note: "임원 등급 상향",
-    },
-    {
-      id: "mock-v40",
-      label: "v4.0",
+      id: draftId,
+      label: nextLabel(tenant.policyVersion),
       status: "DRAFT",
       effectiveFrom: null,
       approvedAt: null,
       approvedBy: null,
-      note: "보건의료인(R2) 규칙 반영 예정",
+      note: "개정 작업 중",
     },
   ];
 
   return {
     source: "MOCK",
+    tenantId,
     versions,
     rulesByVersion: {
-      [MOCK_ACTIVE_ID]: POLICY_RULES,
-      "mock-v31": [],
-      "mock-v40": [],
+      [activeId]: rulesOf(tenantId),
+      [draftId]: [],
     },
     products: WREATH_PRODUCTS,
     error,
   };
+}
+
+/** v3.2 → v3.3 */
+function nextLabel(label: string) {
+  const m = label.match(/^v(\d+)\.(\d+)$/);
+  return m ? `v${m[1]}.${Number(m[2]) + 1}` : `${label}-next`;
 }
 
 /* ── Supabase 행 → 도메인 타입 ────────────────────────────── */
@@ -163,16 +158,21 @@ function toProduct(row: ProductRow): WreathProduct {
 
 /* ── 조회 ─────────────────────────────────────────────────── */
 
-export async function loadPolicies(): Promise<PolicyBundle> {
+export async function loadPolicies(tenantId: string): Promise<PolicyBundle> {
   const supabase = getSupabase();
-  if (!supabase) return mockBundle();
+  if (!supabase) return mockBundle(tenantId);
 
   const [versionsRes, rulesRes, productsRes] = await Promise.all([
     supabase
       .from("policy_version")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false }),
-    supabase.from("policy_rule").select("*").order("code"),
+    supabase
+      .from("policy_rule")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("code"),
     supabase
       .from("wreath_product")
       .select("*")
@@ -182,7 +182,7 @@ export async function loadPolicies(): Promise<PolicyBundle> {
 
   const failure = versionsRes.error ?? rulesRes.error ?? productsRes.error;
   if (failure) {
-    return mockBundle(`Supabase 조회 실패 — ${failure.message}`);
+    return mockBundle(tenantId, `Supabase 조회 실패 — ${failure.message}`);
   }
 
   const versions = (versionsRes.data as VersionRow[]).map(toVersion);
@@ -194,6 +194,7 @@ export async function loadPolicies(): Promise<PolicyBundle> {
 
   return {
     source: "SUPABASE",
+    tenantId,
     versions,
     rulesByVersion,
     products: (productsRes.data as ProductRow[]).map(toProduct),
@@ -215,6 +216,7 @@ export interface RuleInput {
 
 /** Supabase 미설정 시 null 을 돌려주고, 화면은 로컬 상태만 갱신한다. */
 export async function saveRule(
+  tenantId: string,
   versionId: string,
   input: RuleInput
 ): Promise<string | null> {
@@ -223,6 +225,7 @@ export async function saveRule(
 
   const { error } = await supabase.from("policy_rule").upsert(
     {
+      tenant_id: tenantId,
       version_id: versionId,
       code: input.code,
       event_type_code: input.eventTypeCode,
@@ -239,6 +242,7 @@ export async function saveRule(
 }
 
 export async function deleteRule(
+  tenantId: string,
   versionId: string,
   code: string
 ): Promise<string | null> {
@@ -248,6 +252,7 @@ export async function deleteRule(
   const { error } = await supabase
     .from("policy_rule")
     .delete()
+    .eq("tenant_id", tenantId)
     .eq("version_id", versionId)
     .eq("code", code);
 
@@ -259,6 +264,7 @@ export async function deleteRule(
  * 시행 중 규정이 둘 이상이면 어느 기준으로 판정했는지 확정할 수 없다.
  */
 export async function activateVersion(
+  tenantId: string,
   versionId: string,
   approvedBy: string,
   approvedAt: string
@@ -266,18 +272,21 @@ export async function activateVersion(
   const supabase = getSupabase();
   if (!supabase) return null;
 
+  // 종료 처리는 반드시 같은 고객사 안에서만 일어나야 한다
   const archived = await supabase
     .from("policy_version")
     .update({ status: "ARCHIVED" })
+    .eq("tenant_id", tenantId)
     .eq("status", "ACTIVE")
     .neq("id", versionId);
   if (archived.error) return archived.error.message;
 
-  return updateVersionStatus(versionId, "ACTIVE", approvedBy, approvedAt);
+  return updateVersionStatus(tenantId, versionId, "ACTIVE", approvedBy, approvedAt);
 }
 
 /** 규정 결재 — 이 결재가 개별 건 자동승인의 사전 결재 근거가 된다 (F1-9) */
 export async function updateVersionStatus(
+  tenantId: string,
   versionId: string,
   status: VersionStatus,
   approvedBy?: string,
@@ -293,6 +302,7 @@ export async function updateVersionStatus(
   const { error } = await supabase
     .from("policy_version")
     .update(patch)
+    .eq("tenant_id", tenantId)
     .eq("id", versionId);
 
   return error ? error.message : null;

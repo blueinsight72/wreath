@@ -2,10 +2,6 @@
 // 실제 시스템에서는 서버에서 판정하고 스냅샷을 불변 저장한다.
 import {
   LEGAL_WREATH_LIMIT,
-  POLICY_APPROVED_AT,
-  POLICY_APPROVED_BY,
-  POLICY_RULES,
-  POLICY_VERSION,
   SENT_RECORDS,
   WREATH_PRODUCTS,
   findBudget,
@@ -14,6 +10,7 @@ import {
   findRecipient,
   findVenue,
 } from "./mock-data";
+import { DEFAULT_TENANT_ID, findTenant, rulesOf } from "./tenants";
 import {
   RANK_TIER_LABEL,
   REGIME_LABEL,
@@ -62,12 +59,12 @@ function resolveRegime(draft: RequestDraft): { regime: Regime; basis: string } {
 }
 
 /** 2. 사내 규정 상한 산출 — 조건이 가장 구체적인 규정 한 줄을 고른다 */
-function matchRule(draft: RequestDraft): PolicyRule | null {
+function matchRule(draft: RequestDraft, tenantId: string): PolicyRule | null {
   const employee = findEmployee(draft.targetId);
   const tier = employee ? rankTierOf(employee.rank) : null;
   const tenure = employee?.tenureMonths ?? 0;
 
-  const candidates = POLICY_RULES.filter(
+  const candidates = rulesOf(tenantId).filter(
     (r) =>
       r.eventTypeCode === draft.eventTypeCode &&
       r.targetKind === draft.targetKind &&
@@ -97,10 +94,12 @@ function findDuplicate(draft: RequestDraft): number | null {
 /** 신청 초안에 대한 규정 판정 (상품 선택 이전 단계) */
 export function decidePolicy(
   draft: RequestDraft,
-  applicantCostCenter: string
+  applicantCostCenter: string,
+  tenantId: string = DEFAULT_TENANT_ID
 ): PolicyDecision {
+  const tenant = findTenant(tenantId);
   const { regime, basis } = resolveRegime(draft);
-  const rule = matchRule(draft);
+  const rule = matchRule(draft, tenantId);
   const employee = findEmployee(draft.targetId);
   const budget = findBudget(applicantCostCenter);
 
@@ -217,9 +216,9 @@ export function decidePolicy(
       : `MIN(사내 ${fmt(internalLimit)}, 법정 ${fmt(legalLimit)}) = ${fmt(finalLimit)}`;
 
   const snapshot: DecisionSnapshot = {
-    policyVersion: POLICY_VERSION,
-    policyApprovedAt: POLICY_APPROVED_AT,
-    policyApprovedBy: POLICY_APPROVED_BY,
+    policyVersion: `${tenant.name} ${tenant.policyVersion}`,
+    policyApprovedAt: tenant.policyApprovedAt,
+    policyApprovedBy: tenant.policyApprovedBy,
     matchedRuleId: rule?.id ?? null,
     conditions,
     limitFormula,

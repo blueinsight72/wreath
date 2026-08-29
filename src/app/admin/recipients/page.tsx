@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Badge, Button, Callout, Card, DeskShell, Field, Stat } from "@/components/ui";
 import { EXTERNAL_RECIPIENTS } from "@/lib/mock-data";
+import { TenantSwitcher } from "@/components/TenantSwitcher";
+import { useCurrentTenant } from "@/lib/tenant-context";
 import {
   REGIME_DESC,
   REGIME_LABEL,
@@ -21,11 +23,22 @@ const REGIME_TONE = {
 const EXTERNAL_REGIMES: Regime[] = ["R1", "R2", "R3", "UNKNOWN"];
 
 export default function RecipientsPage() {
-  const [rows, setRows] = useState<ExternalRecipient[]>(EXTERNAL_RECIPIENTS);
+  const tenant = useCurrentTenant();
+  // 거래처는 고객사마다 다르다 — 목업은 제노㈜ 기준
+  const seed = tenant.id === "tn-zeno" ? EXTERNAL_RECIPIENTS : [];
+  const [rows, setRows] = useState<ExternalRecipient[]>(seed);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftRegime, setDraftRegime] = useState<Regime>("UNKNOWN");
   const [draftBasis, setDraftBasis] = useState("");
   const [draftScope, setDraftScope] = useState<"SELF" | "SPOUSE" | "NONE">("NONE");
+
+  const [loadedTenant, setLoadedTenant] = useState(tenant.id);
+  if (loadedTenant !== tenant.id) {
+    // 렌더 중 동기화 — 고객사가 바뀌면 그 고객사 목록으로 즉시 교체한다
+    setLoadedTenant(tenant.id);
+    setRows(seed);
+    setEditingId(null);
+  }
 
   const unknown = rows.filter((r) => r.regime === "UNKNOWN").length;
 
@@ -57,9 +70,14 @@ export default function RecipientsPage() {
   return (
     <DeskShell
       title="거래처 수신자 마스터"
-      subtitle="신청 시점의 일반 임직원은 상대가 청탁금지법 적용 대상인지 판단할 수 없습니다. 여기서 미리 확정해 둡니다."
+      subtitle={`${tenant.name} — 신청 시점의 일반 임직원은 상대가 청탁금지법 적용 대상인지 판단할 수 없습니다. 여기서 미리 확정해 둡니다.`}
       back={{ href: "/", label: "홈" }}
-      aside={<Button className="w-auto px-5">수신자 등록</Button>}
+      aside={
+        <div className="flex flex-wrap items-center gap-2">
+          <TenantSwitcher />
+          <Button className="w-auto px-5">수신자 등록</Button>
+        </div>
+      }
     >
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="등록 수신자" value={`${rows.length}명`} />
@@ -89,6 +107,12 @@ export default function RecipientsPage() {
       </Callout>
 
       <div className="mt-6 space-y-3">
+        {rows.length === 0 && (
+          <p className="rounded-xl border border-dashed border-line bg-surface-2 px-4 py-5 text-center text-[12.5px] text-ink-3">
+            등록된 거래처 수신자가 없습니다. 온보딩 단계에서 주요 거래처를 먼저
+            등록하면 그 뒤부터 자동승인이 가능합니다.
+          </p>
+        )}
         {rows.map((r) => {
           const editing = editingId === r.id;
           return (

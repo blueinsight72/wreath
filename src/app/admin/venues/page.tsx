@@ -55,7 +55,7 @@ export default function VenuesPage() {
   return (
     <DeskShell
       title="장례식장 반입 규정 DB"
-      subtitle="공공 마스터는 누구나 받습니다. 이 장례식장이 화환을 거부한다는 정보는 실제 배송에서만 쌓입니다."
+      subtitle="전 고객사 공통 자산입니다. 공공 마스터는 누구나 받지만, 이 장례식장이 화환을 거부한다는 정보는 모든 고객사의 실제 배송에서 함께 쌓입니다."
       back={{ href: "/", label: "홈" }}
       aside={<Button className="w-auto px-5">장례식장 등록</Button>}
     >

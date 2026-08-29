@@ -3,8 +3,8 @@
 // 통제 작동 리포트(S13) 데이터 접근 계층.
 // 법무 · 감사가 보는 것은 "위반이 없었다"가 아니라 "통제가 작동한 기록"이다.
 import { ORDERS, type Order } from "@/lib/ops-data";
-import { POLICY_APPROVED_AT, POLICY_APPROVED_BY, POLICY_VERSION } from "@/lib/mock-data";
 import { getSupabase, type DataSource } from "@/lib/supabase";
+import { findTenant } from "@/lib/tenants";
 
 /** 법정 상한 초과로 차단된 발주 시도 (F1-5) */
 export interface BlockedAttempt {
@@ -30,6 +30,7 @@ export interface ApprovalRecord {
 
 export interface ControlReport {
   source: DataSource;
+  tenantId: string;
   error: string | null;
   policyVersion: string;
   policyApprovedAt: string;
@@ -89,16 +90,21 @@ const MOCK_APPROVALS: ApprovalRecord[] = [
   },
 ];
 
-function mockReport(error: string | null = null): ControlReport {
+function mockReport(tenantId: string, error: string | null = null): ControlReport {
+  const tenant = findTenant(tenantId);
+  // 발주 이력 목업은 제노㈜ 기준이라, 다른 고객사는 아직 집계 대상이 없다
+  const isPrimary = tenantId === "tn-zeno";
+
   return {
     source: "MOCK",
+    tenantId,
     error,
-    policyVersion: POLICY_VERSION,
-    policyApprovedAt: POLICY_APPROVED_AT,
-    policyApprovedBy: POLICY_APPROVED_BY,
-    orders: ORDERS,
-    blocked: MOCK_BLOCKED,
-    approvals: MOCK_APPROVALS,
+    policyVersion: tenant.policyVersion,
+    policyApprovedAt: tenant.policyApprovedAt,
+    policyApprovedBy: tenant.policyApprovedBy,
+    orders: isPrimary ? ORDERS : [],
+    blocked: isPrimary ? MOCK_BLOCKED : [],
+    approvals: isPrimary ? MOCK_APPROVALS : [],
   };
 }
 
@@ -122,28 +128,33 @@ interface ApprovalRow {
   decided_at: string;
 }
 
-export async function loadControlReport(): Promise<ControlReport> {
+export async function loadControlReport(
+  tenantId: string
+): Promise<ControlReport> {
   const supabase = getSupabase();
-  if (!supabase) return mockReport();
+  if (!supabase) return mockReport(tenantId);
 
   const [blockedRes, approvalRes, versionRes] = await Promise.all([
     supabase
       .from("blocked_attempt")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("attempted_at", { ascending: false }),
     supabase
       .from("approval_log")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("decided_at", { ascending: false }),
     supabase
       .from("policy_version")
       .select("label, approved_at, approved_by")
+      .eq("tenant_id", tenantId)
       .eq("status", "ACTIVE")
       .maybeSingle(),
   ]);
 
   const failure = blockedRes.error ?? approvalRes.error ?? versionRes.error;
-  if (failure) return mockReport(`Supabase 조회 실패 — ${failure.message}`);
+  if (failure) return mockReport(tenantId, `Supabase 조회 실패 — ${failure.message}`);
 
   const active = versionRes.data as
     | { label: string; approved_at: string | null; approved_by: string | null }
@@ -151,6 +162,7 @@ export async function loadControlReport(): Promise<ControlReport> {
 
   return {
     source: "SUPABASE",
+    tenantId,
     error: null,
     policyVersion: active?.label ?? "시행 중 규정 없음",
     policyApprovedAt: active?.approved_at ?? "—",

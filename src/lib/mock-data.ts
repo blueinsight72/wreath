@@ -5,7 +5,6 @@ import type {
   EventType,
   ExternalRecipient,
   FuneralVenue,
-  PolicyRule,
   RelationType,
   ReligionType,
   SenderCompany,
@@ -269,42 +268,8 @@ export function findRelation(code: string) {
 
 /* ── 사내 경조 규정 (S2) ───────────────────────────── */
 
-/** 규정 버전 — 판정 근거 스냅샷에 기록된다 (F1-7, F1-9) */
-export const POLICY_VERSION = "v3.2 (2026-03-01 시행)";
-export const POLICY_APPROVED_AT = "2026-02-20";
-export const POLICY_APPROVED_BY = "CFO 한지수";
-
-/** 청탁금지법 화환 · 조화 가액범위 (R1 하드리밋) */
+/** 청탁금지법 화환 · 조화 가액범위 (R1 하드리밋) — 법이 정한 값이라 고객사 공통 */
 export const LEGAL_WREATH_LIMIT = 100000;
-
-export const POLICY_RULES: PolicyRule[] = [
-  // 자사 임직원 — 직급별 차등
-  { id: "P-101", eventTypeCode: "PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: "EXEC", minTenureMonths: 0, grade: "A", wreathLimit: 300000 },
-  { id: "P-102", eventTypeCode: "PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: "SENIOR", minTenureMonths: 12, grade: "B", wreathLimit: 200000 },
-  { id: "P-103", eventTypeCode: "PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: "STAFF", minTenureMonths: 12, grade: "C", wreathLimit: 150000 },
-  { id: "P-104", eventTypeCode: "PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "D", wreathLimit: 100000 },
-
-  { id: "P-111", eventTypeCode: "SPOUSE_PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: "EXEC", minTenureMonths: 0, grade: "A", wreathLimit: 300000 },
-  { id: "P-112", eventTypeCode: "SPOUSE_PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 12, grade: "C", wreathLimit: 150000 },
-  { id: "P-113", eventTypeCode: "SPOUSE_PARENT_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "D", wreathLimit: 100000 },
-
-  { id: "P-121", eventTypeCode: "SPOUSE_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "A", wreathLimit: 300000 },
-  { id: "P-131", eventTypeCode: "CHILD_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "A", wreathLimit: 300000 },
-
-  { id: "P-141", eventTypeCode: "GRANDPARENT_DEATH", targetKind: "EMPLOYEE", rankTier: "EXEC", minTenureMonths: 0, grade: "C", wreathLimit: 150000 },
-  { id: "P-142", eventTypeCode: "GRANDPARENT_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "D", wreathLimit: 100000 },
-
-  { id: "P-151", eventTypeCode: "SIBLING_DEATH", targetKind: "EMPLOYEE", rankTier: "EXEC", minTenureMonths: 0, grade: "C", wreathLimit: 150000 },
-  { id: "P-152", eventTypeCode: "SIBLING_DEATH", targetKind: "EMPLOYEE", rankTier: null, minTenureMonths: 0, grade: "D", wreathLimit: 100000 },
-
-  // 거래처 · 외부 — 직급 축 없이 경조 유형별 단일 상한
-  { id: "P-201", eventTypeCode: "PARENT_DEATH", targetKind: "EXTERNAL", rankTier: null, minTenureMonths: 0, grade: "C", wreathLimit: 150000 },
-  { id: "P-202", eventTypeCode: "SPOUSE_PARENT_DEATH", targetKind: "EXTERNAL", rankTier: null, minTenureMonths: 0, grade: "C", wreathLimit: 150000 },
-  { id: "P-203", eventTypeCode: "SPOUSE_DEATH", targetKind: "EXTERNAL", rankTier: null, minTenureMonths: 0, grade: "B", wreathLimit: 200000 },
-  { id: "P-204", eventTypeCode: "CHILD_DEATH", targetKind: "EXTERNAL", rankTier: null, minTenureMonths: 0, grade: "B", wreathLimit: 200000 },
-  { id: "P-205", eventTypeCode: "GRANDPARENT_DEATH", targetKind: "EXTERNAL", rankTier: null, minTenureMonths: 0, grade: "D", wreathLimit: 100000 },
-  // SIBLING_DEATH 는 거래처 규정에 없음 — 규정 외 → 승인 경로 (F1 판정 로직)
-];
 
 export const WREATH_PRODUCTS: WreathProduct[] = [
   { id: "pd-a1", name: "근조화환 3단 프리미엄", grade: "A", price: 300000, kind: "WREATH", freshGuarantee: true, leadTimeHours: 4, desc: "국화 3단 · 대형 리본 2매" },

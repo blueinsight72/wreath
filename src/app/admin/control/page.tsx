@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Badge, Callout, Card, DeskShell, Stat } from "@/components/ui";
 import { DataSourceBadge } from "@/components/DataSourceBadge";
+import { TenantSwitcher } from "@/components/TenantSwitcher";
+import { useCurrentTenant } from "@/lib/tenant-context";
 import { formatKRW } from "@/lib/format";
 import { ORDER_STATUS_LABEL } from "@/lib/ops-data";
 import {
@@ -19,21 +21,27 @@ const VERDICT_LABEL: Record<ApprovalRecord["verdict"], string> = {
 };
 
 export default function ControlReportPage() {
+  const tenant = useCurrentTenant();
   const [report, setReport] = useState<ControlReport | null>(null);
 
   useEffect(() => {
     let alive = true;
-    loadControlReport().then((r) => {
+    loadControlReport(tenant.id).then((r) => {
       if (alive) setReport(r);
     });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [tenant.id]);
 
-  if (!report) {
+  if (!report || report.tenantId !== tenant.id) {
     return (
-      <DeskShell title="통제 작동 리포트" back={{ href: "/", label: "홈" }}>
+      <DeskShell
+        title="통제 작동 리포트"
+        subtitle={tenant.name}
+        back={{ href: "/", label: "홈" }}
+        aside={<TenantSwitcher />}
+      >
         <Card>
           <p className="text-[13px] text-ink-2">리포트를 불러오는 중입니다…</p>
         </Card>
@@ -43,6 +51,7 @@ export default function ControlReportPage() {
 
   const { orders, blocked, approvals } = report;
   const total = orders.length;
+  const pct = (n: number) => (total === 0 ? "—" : `${Math.round((n / total) * 100)}%`);
   const autoApproved = orders.filter(
     (o) => o.status !== "APPROVAL_PENDING" && o.approvalReasons.length === 0
   ).length;
@@ -59,9 +68,14 @@ export default function ControlReportPage() {
   return (
     <DeskShell
       title="통제 작동 리포트"
-      subtitle="감사 · 법무 제출용. 규정 결재부터 차단 로그까지, 회사가 상당한 주의와 감독을 다했다는 기록입니다."
+      subtitle={`${tenant.name} — 감사 · 법무 제출용. 규정 결재부터 차단 로그까지, 회사가 상당한 주의와 감독을 다했다는 기록입니다.`}
       back={{ href: "/", label: "홈" }}
-      aside={<DataSourceBadge source={report.source} />}
+      aside={
+        <div className="flex flex-wrap items-center gap-2">
+          <TenantSwitcher />
+          <DataSourceBadge source={report.source} />
+        </div>
+      }
     >
       {report.error && (
         <div className="mb-5">
@@ -72,7 +86,7 @@ export default function ControlReportPage() {
       )}
 
       <Callout tone="info" title="적용 규정 근거">
-        시행 규정 <strong>{report.policyVersion}</strong> ·{" "}
+        {tenant.name} 시행 규정 <strong>{report.policyVersion}</strong> ·{" "}
         {report.policyApprovedAt} {report.policyApprovedBy} 결재. 이 결재가 개별
         발주 자동승인의 사전 결재를 갈음합니다.
       </Callout>
@@ -80,7 +94,7 @@ export default function ControlReportPage() {
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat
           label="자동승인율"
-          value={`${Math.round((autoApproved / total) * 100)}%`}
+          value={pct(autoApproved)}
           note={`${autoApproved} / ${total}건`}
           tone="ok"
         />
@@ -98,7 +112,7 @@ export default function ControlReportPage() {
         />
         <Stat
           label="규정 판정 커버리지"
-          value={`${Math.round(((total - offSystem.length) / total) * 100)}%`}
+          value={pct(total - offSystem.length)}
           note={`우회 ${offSystem.length}건`}
           tone={offSystem.length > 0 ? "warn" : "ok"}
         />

@@ -17,7 +17,8 @@ import {
   findSupplier,
   type Order,
 } from "@/lib/ops-data";
-import { POLICY_VERSION } from "@/lib/mock-data";
+import { TenantSwitcher } from "@/components/TenantSwitcher";
+import { useCurrentTenant } from "@/lib/tenant-context";
 
 /** 총무가 실제로 손대야 하는 건만 골라낸다 — 나머지는 자동으로 흐른다 */
 function exceptionsOf(order: Order) {
@@ -51,40 +52,46 @@ function exceptionsOf(order: Order) {
 }
 
 export default function AdminDashboardPage() {
+  const tenant = useCurrentTenant();
   const [registering, setRegistering] = useState(false);
   const [registered, setRegistered] = useState(false);
 
-  const total = ORDERS.length;
-  const autoApproved = ORDERS.filter(
+  // 발주 이력 목업은 제노㈜ 기준 — 다른 고객사는 아직 집계 대상이 없다
+  const orders = tenant.id === "tn-zeno" ? ORDERS : [];
+  const total = orders.length;
+  const autoApproved = orders.filter(
     (o) => o.status !== "APPROVAL_PENDING" && o.approvalReasons.length === 0
   ).length;
-  const offSystem = ORDERS.filter((o) => o.offSystem).length;
-  const proofTargets = ORDERS.filter((o) => o.status === "DELIVERED");
+  const offSystem = orders.filter((o) => o.offSystem).length;
+  const proofTargets = orders.filter((o) => o.status === "DELIVERED");
   const proofDone = proofTargets.filter((o) => o.proofPhoto).length;
 
-  const exceptions = ORDERS.map((o) => ({ order: o, flags: exceptionsOf(o) })).filter(
+  const exceptions = orders.map((o) => ({ order: o, flags: exceptionsOf(o) })).filter(
     (x) => x.flags.length > 0
   );
 
   return (
     <DeskShell
       title="총무 대시보드"
-      subtitle="자동으로 흐르는 건은 보이지 않습니다. 손을 대야 하는 건만 모았습니다."
+      subtitle={`${tenant.name} — 자동으로 흐르는 건은 보이지 않습니다. 손을 대야 하는 건만 모았습니다.`}
       back={{ href: "/", label: "홈" }}
       aside={
-        <Button
-          className="w-auto px-5"
-          variant="ghost"
-          onClick={() => setRegistering(true)}
-        >
-          시스템 밖 발주 사후 등록
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <TenantSwitcher />
+          <Button
+            className="w-auto px-5"
+            variant="ghost"
+            onClick={() => setRegistering(true)}
+          >
+            시스템 밖 발주 사후 등록
+          </Button>
+        </div>
       }
     >
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat
           label="자동승인율"
-          value={`${Math.round((autoApproved / total) * 100)}%`}
+          value={total === 0 ? "—" : `${Math.round((autoApproved / total) * 100)}%`}
           note={`${autoApproved} / ${total}건`}
           tone="ok"
         />
@@ -105,15 +112,23 @@ export default function AdminDashboardPage() {
         />
         <Stat
           label="규정 판정 커버리지"
-          value={`${Math.round(((total - offSystem) / total) * 100)}%`}
+          value={
+            total === 0
+              ? "—"
+              : `${Math.round(((total - offSystem) / total) * 100)}%`
+          }
           note={`우회 ${offSystem}건`}
           tone={offSystem > 0 ? "warn" : "ok"}
         />
       </div>
 
-      <Callout tone="info" title={`적용 규정 ${POLICY_VERSION}`}>
-        모든 발주는 이 규정 버전으로 판정되었으며, 판정 근거 · 승인 이력 · 차단
-        로그가 건별로 보관되어 있습니다.
+      <Callout
+        tone="info"
+        title={`${tenant.name} 적용 규정 ${tenant.policyVersion}`}
+      >
+        {tenant.policyApprovedAt} {tenant.policyApprovedBy} 결재. 이 고객사의
+        발주는 모두 이 규정으로 판정되며, 판정 근거 · 승인 이력 · 차단 로그가
+        건별로 보관됩니다.
       </Callout>
 
       {registering && !registered && (
@@ -172,6 +187,11 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="mt-3 space-y-3">
+          {exceptions.length === 0 && (
+            <p className="rounded-xl border border-dashed border-line bg-surface-2 px-4 py-5 text-center text-[12.5px] text-ink-3">
+              처리가 필요한 건이 없습니다.
+            </p>
+          )}
           {exceptions.map(({ order, flags }) => (
             <Card key={order.id} className="bg-surface">
               <div className="flex flex-wrap items-start justify-between gap-4">

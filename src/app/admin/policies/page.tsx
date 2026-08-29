@@ -11,6 +11,8 @@ import {
   Stat,
 } from "@/components/ui";
 import { DataSourceBadge } from "@/components/DataSourceBadge";
+import { TenantSwitcher } from "@/components/TenantSwitcher";
+import { useCurrentTenant } from "@/lib/tenant-context";
 import { formatKRW } from "@/lib/format";
 import { EVENT_TYPES, findEventType } from "@/lib/mock-data";
 import {
@@ -37,16 +39,19 @@ const EMPTY_RULE: RuleInput = {
 };
 
 export default function PoliciesPage() {
+  const tenant = useCurrentTenant();
   const [bundle, setBundle] = useState<PolicyBundle | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<RuleInput | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // 고객사를 바꾸면 그 고객사 규정으로 다시 읽는다
   useEffect(() => {
     let alive = true;
-    loadPolicies().then((result) => {
+    loadPolicies(tenant.id).then((result) => {
       if (!alive) return;
       setBundle(result);
+      setEditing(null);
       setSelectedId(
         result.versions.find((v) => v.status === "ACTIVE")?.id ??
           result.versions[0]?.id ??
@@ -56,7 +61,7 @@ export default function PoliciesPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [tenant.id]);
 
   const version = useMemo(
     () => bundle?.versions.find((v) => v.id === selectedId) ?? null,
@@ -65,9 +70,15 @@ export default function PoliciesPage() {
   const rules = selectedId ? (bundle?.rulesByVersion[selectedId] ?? []) : [];
   const editable = version?.status === "DRAFT" || version?.status === "PENDING";
 
-  if (!bundle) {
+  // 고객사를 막 바꾼 직후에는 이전 고객사 규정이 잠깐 남아 있으므로 가린다
+  if (!bundle || bundle.tenantId !== tenant.id) {
     return (
-      <DeskShell title="경조 규정 관리" back={{ href: "/", label: "홈" }}>
+      <DeskShell
+        title="경조 규정 관리"
+        subtitle={`${tenant.name} · ${tenant.industry}`}
+        back={{ href: "/", label: "홈" }}
+        aside={<TenantSwitcher />}
+      >
         <Card>
           <p className="text-[13px] text-ink-2">규정을 불러오는 중입니다…</p>
         </Card>
@@ -78,7 +89,7 @@ export default function PoliciesPage() {
   /* 로컬 상태와 Supabase 를 함께 갱신한다. 미설정이면 로컬만 바뀐다. */
   const applyRule = async (input: RuleInput) => {
     if (!selectedId) return;
-    const err = await saveRule(selectedId, input);
+    const err = await saveRule(tenant.id, selectedId, input);
     if (err) {
       setNotice(`저장 실패 — ${err}`);
       return;
@@ -109,7 +120,7 @@ export default function PoliciesPage() {
 
   const removeRule = async (code: string) => {
     if (!selectedId) return;
-    const err = await deleteRule(selectedId, code);
+    const err = await deleteRule(tenant.id, selectedId, code);
     if (err) {
       setNotice(`삭제 실패 — ${err}`);
       return;
@@ -136,8 +147,8 @@ export default function PoliciesPage() {
     const approvedAt = activating ? "2026-08-29" : undefined;
 
     const err = activating
-      ? await activateVersion(selectedId, approvedBy!, approvedAt!)
-      : await updateVersionStatus(selectedId, next);
+      ? await activateVersion(tenant.id, selectedId, approvedBy!, approvedAt!)
+      : await updateVersionStatus(tenant.id, selectedId, next);
     if (err) {
       setNotice(`상태 변경 실패 — ${err}`);
       return;
@@ -170,9 +181,14 @@ export default function PoliciesPage() {
   return (
     <DeskShell
       title="경조 규정 관리"
-      subtitle="여기서 등록한 규정이 모든 발주의 판정 기준이 됩니다. 규정 결재가 곧 자동승인의 사전 결재입니다."
+      subtitle={`${tenant.name} · ${tenant.industry} — 이 고객사의 발주는 아래 규정으로만 판정됩니다.`}
       back={{ href: "/", label: "홈" }}
-      aside={<DataSourceBadge source={bundle.source} />}
+      aside={
+        <div className="flex flex-wrap items-center gap-2">
+          <TenantSwitcher />
+          <DataSourceBadge source={bundle.source} />
+        </div>
+      }
     >
       {bundle.error && (
         <div className="mb-5">
