@@ -45,6 +45,8 @@ export const EXTERNAL_RECIPIENTS: ExternalRecipient[] = [
     basis: "공직유관단체 임직원 (공공기관 지정 목록 확인)",
     confirmedAt: "2026-06-12",
     confirmedBy: "법무팀 윤성재",
+    officialScope: "SELF",
+    autoHint: "공공기관 지정 목록에서 한국조달공사 확인됨",
   },
   {
     id: "ext-002",
@@ -55,6 +57,8 @@ export const EXTERNAL_RECIPIENTS: ExternalRecipient[] = [
     basis: "언론사 임직원",
     confirmedAt: "2026-05-30",
     confirmedBy: "법무팀 윤성재",
+    officialScope: "SELF",
+    autoHint: "언론사 목록에서 대성일보 확인됨",
   },
   {
     id: "ext-003",
@@ -65,6 +69,8 @@ export const EXTERNAL_RECIPIENTS: ExternalRecipient[] = [
     basis: "보건의료인 — 경제적 이익 제공 규제 검토 필요",
     confirmedAt: "2026-04-18",
     confirmedBy: "법무팀 윤성재",
+    officialScope: "SELF",
+    autoHint: "의료기관 종사자 — 법무 검토 대기",
   },
   {
     id: "ext-004",
@@ -75,6 +81,8 @@ export const EXTERNAL_RECIPIENTS: ExternalRecipient[] = [
     basis: "일반 사기업 임직원 — 사내 규정 및 접대비 처리",
     confirmedAt: "2026-07-02",
     confirmedBy: "구매팀 서나연",
+    officialScope: null,
+    autoHint: null,
   },
   {
     id: "ext-005",
@@ -85,6 +93,8 @@ export const EXTERNAL_RECIPIENTS: ExternalRecipient[] = [
     basis: "일반 사기업 임직원",
     confirmedAt: "2026-03-11",
     confirmedBy: "구매팀 서나연",
+    officialScope: null,
+    autoHint: null,
   },
   {
     id: "ext-006",
@@ -95,6 +105,8 @@ export const EXTERNAL_RECIPIENTS: ExternalRecipient[] = [
     basis: "학교법인 직원 여부 확인 중",
     confirmedAt: null,
     confirmedBy: null,
+    officialScope: null,
+    autoHint: "학교법인 여부 자동 판정 불가 — 사람 확인 필요",
   },
 ];
 
@@ -133,6 +145,7 @@ export const FUNERAL_VENUES: FuneralVenue[] = [
     entryHours: "06:00 ~ 22:00",
     verification: "VERIFIED",
     updatedAt: "2026-08-14",
+    issueReports: 0,
   },
   {
     id: "vn-002",
@@ -146,6 +159,7 @@ export const FUNERAL_VENUES: FuneralVenue[] = [
     entryHours: "06:00 ~ 22:00",
     verification: "VERIFIED",
     updatedAt: "2026-08-02",
+    issueReports: 0,
   },
   {
     id: "vn-003",
@@ -159,6 +173,7 @@ export const FUNERAL_VENUES: FuneralVenue[] = [
     entryHours: null,
     verification: "REPORTED",
     updatedAt: "2026-07-28",
+    issueReports: 3,
   },
   {
     id: "vn-004",
@@ -172,6 +187,7 @@ export const FUNERAL_VENUES: FuneralVenue[] = [
     entryHours: "07:00 ~ 21:00",
     verification: "NEEDS_CHECK",
     updatedAt: "2026-02-10",
+    issueReports: 1,
   },
   {
     id: "vn-005",
@@ -185,6 +201,7 @@ export const FUNERAL_VENUES: FuneralVenue[] = [
     entryHours: null,
     verification: "NEEDS_CHECK",
     updatedAt: "2026-01-22",
+    issueReports: 0,
   },
   {
     id: "vn-006",
@@ -198,6 +215,7 @@ export const FUNERAL_VENUES: FuneralVenue[] = [
     entryHours: "06:00 ~ 23:00",
     verification: "VERIFIED",
     updatedAt: "2026-08-19",
+    issueReports: 0,
   },
   {
     id: "vn-007",
@@ -211,6 +229,7 @@ export const FUNERAL_VENUES: FuneralVenue[] = [
     entryHours: "06:00 ~ 22:00",
     verification: "VERIFIED",
     updatedAt: "2026-08-08",
+    issueReports: 2,
   },
   {
     id: "vn-008",
@@ -224,6 +243,7 @@ export const FUNERAL_VENUES: FuneralVenue[] = [
     entryHours: "06:00 ~ 22:00",
     verification: "NEEDS_CHECK",
     updatedAt: "2026-03-30",
+    issueReports: 1,
   },
 ];
 

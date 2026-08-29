@@ -49,7 +49,7 @@ const ENTRIES: Entry[] = [
     title: "총무 대시보드",
     desc: "예외·SLA 모니터링, 수신자 마스터, 장례식장 DB.",
     role: "총무 · 운영",
-    ready: false,
+    ready: true,
   },
 ];
 

@@ -71,6 +71,10 @@ export interface ExternalRecipient {
   /** 최종 확인일 (YYYY-MM-DD) */
   confirmedAt: string | null;
   confirmedBy: string | null;
+  /** 공직자등 본인인지 배우자인지 — 경조 유형별 판정이 갈린다 (F14-3) */
+  officialScope: "SELF" | "SPOUSE" | null;
+  /** 기관명 기반 자동 후보 판정 결과 (F14-5) — 최종 확정은 사람이 한다 */
+  autoHint: string | null;
 }
 
 /** 장례식장 마스터 (F8) */
@@ -91,6 +95,8 @@ export interface FuneralVenue {
   /** 검증 상태 — 미검증 정보는 확정 사실로 안내하지 않는다 (F8-5) */
   verification: "VERIFIED" | "NEEDS_CHECK" | "REPORTED";
   updatedAt: string;
+  /** 공급사 현장 보고 누적 건수 — 3건 이상이면 운영팀 검증 대상 (F8-4) */
+  issueReports: number;
 }
 
 /** 신청 대상 구분 */
