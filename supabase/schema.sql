@@ -3,7 +3,8 @@
 --
 -- 테넌트 경계
 --   고객사 귀속 : 규정 · 거래처 수신자 마스터 · 발주 · 판정 스냅샷 · 차단 로그 · 승인 이력
---   ZENO 공통   : 장례식장 DB · 공급사 · 상품 카탈로그
+--   ZENO 공통   : 장례식장 DB · 상품 카탈로그
+--   ZENO SCM    : 공급사 마스터 · 발주 접수 · 배송 상태 · 정산 (이 모듈 밖)
 --   장례식장 반입 정보는 모든 고객사의 배송에서 함께 축적될 때 가장 정확해지므로
 --   의도적으로 테넌트 밖에 둔다.
 --
@@ -134,25 +135,6 @@ create table if not exists funeral_venue (
   created_at         timestamptz not null default now()
 );
 
--- 공급사 — ZENO 공통
-create table if not exists supplier (
-  id              uuid primary key default gen_random_uuid(),
-  name            text not null,
-  regions         text[] not null default '{}',
-  business_hours  text,
-  night_support   boolean not null default false,
-  tax_type        text not null default 'GENERAL'
-                  check (tax_type in ('GENERAL', 'SIMPLE', 'EXEMPT')),
-  proper_evidence boolean not null default false,
-  onboarding      text not null default 'APPLIED',
-  grace_ends_at   date,
-  sla_score       int not null default 0,
-  accept_rate     int not null default 0,
-  on_time_rate    int not null default 0,
-  proof_rate      int not null default 0,
-  created_at      timestamptz not null default now()
-);
-
 -- 상품 카탈로그 — ZENO 공통
 create table if not exists wreath_product (
   id              uuid primary key default gen_random_uuid(),
@@ -193,7 +175,10 @@ create table if not exists condolence_order (
   ribbon_phrase     text,
   ribbon_sender     text,
   status            text not null default 'APPROVAL_PENDING',
-  supplier_id       uuid references supplier(id) on delete set null,
+  -- 공급사 배정 · 접수 · 배송 상태는 ZENO SCM 이 관리한다.
+  -- 이 모듈은 SCM 식별자와 배정 결과 스냅샷만 보관한다.
+  supplier_ref      text,
+  supplier_name     text,
   sla_remaining_min int not null default 0,
   proof_required    boolean not null default false,
   proof_photo       boolean not null default false,
@@ -254,7 +239,7 @@ declare t text;
 begin
   foreach t in array array[
     'tenant', 'tenant_member', 'policy_version', 'policy_rule', 'wreath_product',
-    'external_recipient', 'funeral_venue', 'supplier', 'condolence_order',
+    'external_recipient', 'funeral_venue', 'condolence_order',
     'policy_decision_snapshot', 'blocked_attempt', 'approval_log'
   ]
   loop

@@ -283,14 +283,14 @@ function buildStages(
   stages.push(
     {
       key: "order",
-      title: "공급사 발주",
-      detail: "권역·리드타임 기준 자동 배정 후 알림톡 송신",
+      title: "ZENO SCM 발주 전달",
+      detail: "공급사 배정과 발주 송신은 SCM 이 처리합니다",
       state: orderState,
     },
     {
       key: "accept",
       title: "공급사 접수",
-      detail: "15분 내 미접수 시 재알림, 30분 초과 시 대체 공급사 전환",
+      detail: "SCM 에서 접수 상태를 받아 표시합니다",
       state: "PENDING",
     },
     {

@@ -45,15 +45,7 @@ const ENTRIES: Entry[] = [
     screen: "S6",
     title: "배송 증빙 등록",
     desc: "로그인 없이 링크 한 번으로 배송 완료를 처리합니다.",
-    role: "공급사",
-    ready: true,
-  },
-  {
-    href: "/supplier",
-    screen: "S7 · S8",
-    title: "공급사 발주 어드민",
-    desc: "신규 발주 접수, 상태 관리, 온보딩.",
-    role: "공급사",
+    role: "공급사 (SCM 연동)",
     ready: true,
   },
   {

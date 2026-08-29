@@ -11,12 +11,7 @@ import {
   Stat,
 } from "@/components/ui";
 import { formatKRW } from "@/lib/format";
-import {
-  ORDERS,
-  ORDER_STATUS_LABEL,
-  findSupplier,
-  type Order,
-} from "@/lib/ops-data";
+import { ORDERS, ORDER_STATUS_LABEL, type Order } from "@/lib/ops-data";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { useCurrentTenant } from "@/lib/tenant-context";
 
@@ -40,7 +35,7 @@ function exceptionsOf(order: Order) {
     list.push({ label: "반입 이슈 보고", tone: "warn" });
   }
   if (order.status === "ORDERED" && order.acceptedInMin === null) {
-    list.push({ label: "공급사 미접수", tone: "warn" });
+    list.push({ label: "SCM 공급사 미접수", tone: "warn" });
   }
   if (order.status === "DELIVERED" && order.proofRequired && !order.proofPhoto) {
     list.push({ label: "증빙 미등록", tone: "warn" });
@@ -221,9 +216,7 @@ export default function AdminDashboardPage() {
                     {formatKRW(order.amount)} · {order.productName} ·{" "}
                     {order.venueName}
                     {order.roomNo ? ` ${order.roomNo}` : ""}
-                    {order.supplierId
-                      ? ` · ${findSupplier(order.supplierId)?.name}`
-                      : ""}
+                    {order.supplierName ? ` · ${order.supplierName}` : ""}
                   </p>
                 </div>
 

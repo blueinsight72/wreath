@@ -108,13 +108,6 @@ values
   ('수원 아주대학교병원 장례식장', '경기 수원시 영통구 월드컵로 164', '경기', '031-219-5114', true, '대형 화환(3단 이상) 반입 불가', 0, '06:00 ~ 22:00', 'VERIFIED', 2, '2026-08-08'),
   ('대구 경북대학교병원 장례식장', '대구 중구 동덕로 130', '대구', '053-200-5114', true, null, 20000, '06:00 ~ 22:00', 'NEEDS_CHECK', 1, '2026-03-30');
 
--- ── 공급사 (ZENO 공통) ──────────────────────────────────────
-insert into supplier (name, regions, business_hours, night_support, tax_type, proper_evidence, onboarding, grace_ends_at, sla_score, accept_rate, on_time_rate, proof_rate)
-values
-  ('전국화훼중계망㈜', array['전국'], '05:00 ~ 24:00', true, 'GENERAL', true, 'ACTIVE', null, 92, 98, 95, 71),
-  ('부산제일꽃집', array['부산','경남'], '07:00 ~ 21:00', false, 'EXEMPT', false, 'ACTIVE', '2026-10-14', 88, 94, 91, 84),
-  ('대전중앙화원', array['대전','충남'], '08:00 ~ 20:00', false, 'SIMPLE', false, 'SETTLEMENT', null, 0, 0, 0, 0);
-
 -- ── 상품 카탈로그 (ZENO 공통) ───────────────────────────────
 insert into wreath_product (name, grade, price, kind, fresh_guarantee, lead_time_hours, description)
 values

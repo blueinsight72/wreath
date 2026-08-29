@@ -1,5 +1,7 @@
-// 운영 화면(S5~S11)용 목업 데이터 — 승인 · 발주 · 공급사 · 증빙.
-// 실제로는 서버가 발주 건별로 판정 스냅샷과 함께 보관한다.
+// 운영 화면용 목업 데이터 — 승인 · 발주 · 증빙.
+//
+// 공급사 발주 접수 · 상태 관리 · 정산 · 온보딩은 ZENO SCM 소관이므로 이 모듈에
+// 만들지 않는다. 이 모듈은 SCM 으로 발주를 넘기고, 배정 결과와 상태만 돌려받는다.
 import type { AccountCode, Regime } from "./types";
 
 export type OrderStatus =
@@ -48,7 +50,9 @@ export interface Order {
   ribbonPhrase: string;
   ribbonSender: string;
   status: OrderStatus;
-  supplierId: string | null;
+  /** ZENO SCM 이 배정한 공급사 — 이 모듈은 배정 결과만 받아서 표시한다 */
+  supplierRef: string | null;
+  supplierName: string | null;
   approvalReasons: ApprovalReason[];
   /** 승인 SLA 잔여 (분) — 음수면 초과 */
   slaRemainingMin: number;
@@ -84,7 +88,8 @@ export const ORDERS: Order[] = [
     ribbonPhrase: "삼가 조의를 표합니다",
     ribbonSender: "제노㈜ 대표이사 윤도현",
     status: "APPROVAL_PENDING",
-    supplierId: null,
+    supplierRef: null,
+    supplierName: null,
     approvalReasons: [
       {
         label: "수신자 레짐 미확인",
@@ -123,7 +128,8 @@ export const ORDERS: Order[] = [
     ribbonPhrase: "삼가 고인의 명복을 빕니다",
     ribbonSender: "제노㈜ 영업본부",
     status: "APPROVAL_PENDING",
-    supplierId: null,
+    supplierRef: null,
+    supplierName: null,
     approvalReasons: [
       {
         label: "사내 규정 상한 초과",
@@ -161,7 +167,8 @@ export const ORDERS: Order[] = [
     ribbonPhrase: "삼가 고인의 명복을 빕니다",
     ribbonSender: "제노㈜",
     status: "ORDERED",
-    supplierId: "sp-001",
+    supplierRef: "SCM-SP-001",
+    supplierName: "전국화훼중계망㈜",
     approvalReasons: [],
     slaRemainingMin: 0,
     proofRequired: false,
@@ -190,7 +197,8 @@ export const ORDERS: Order[] = [
     ribbonPhrase: "삼가 고인의 명복을 빕니다",
     ribbonSender: "제노㈜",
     status: "SHIPPING",
-    supplierId: "sp-001",
+    supplierRef: "SCM-SP-001",
+    supplierName: "전국화훼중계망㈜",
     approvalReasons: [],
     slaRemainingMin: 0,
     proofRequired: true,
@@ -219,7 +227,8 @@ export const ORDERS: Order[] = [
     ribbonPhrase: "삼가 조의를 표합니다",
     ribbonSender: "제노㈜ 구매팀",
     status: "DELIVERED",
-    supplierId: "sp-002",
+    supplierRef: "SCM-SP-002",
+    supplierName: "부산제일꽃집",
     approvalReasons: [],
     slaRemainingMin: 0,
     proofRequired: true,
@@ -248,7 +257,8 @@ export const ORDERS: Order[] = [
     ribbonPhrase: "삼가 고인의 명복을 빕니다",
     ribbonSender: "제노홀딩스㈜",
     status: "DELIVERED",
-    supplierId: "sp-001",
+    supplierRef: "SCM-SP-001",
+    supplierName: "전국화훼중계망㈜",
     approvalReasons: [],
     slaRemainingMin: 0,
     proofRequired: false,
@@ -258,104 +268,6 @@ export const ORDERS: Order[] = [
     offSystem: true,
   },
 ];
-
-/* ── 공급사 ────────────────────────────────────────── */
-
-export type TaxType = "GENERAL" | "SIMPLE" | "EXEMPT";
-
-export const TAX_TYPE_LABEL: Record<TaxType, string> = {
-  GENERAL: "일반과세",
-  SIMPLE: "간이과세",
-  EXEMPT: "면세",
-};
-
-export type OnboardingStage =
-  | "APPLIED"
-  | "SCREENING"
-  | "CONTRACT"
-  | "SETTLEMENT"
-  | "COVERAGE"
-  | "ACTIVE";
-
-export const ONBOARDING_STAGES: { key: OnboardingStage; title: string; desc: string }[] =
-  [
-    { key: "APPLIED", title: "가입 신청", desc: "상호 · 사업자등록번호 · 연락처" },
-    { key: "SCREENING", title: "서류 심사", desc: "사업자등록증 · 통장사본 · 화훼 취급 확인" },
-    { key: "CONTRACT", title: "계약 체결", desc: "생화 신품 확약 · 야간 주말 SLA · 증빙 정산 조건" },
-    { key: "SETTLEMENT", title: "정산정보 등록", desc: "과세유형 · 적격증빙 발급 가능 여부" },
-    { key: "COVERAGE", title: "권역 · 영업시간", desc: "배송 권역 · 영업시간 · 야간 대응 여부" },
-    { key: "ACTIVE", title: "배정 개시", desc: "90일 그레이스 기간 시작" },
-  ];
-
-export interface Supplier {
-  id: string;
-  name: string;
-  regions: string[];
-  businessHours: string;
-  nightSupport: boolean;
-  taxType: TaxType;
-  /** 적격증빙 발급 가능 여부 — 접대비 3만원 초과 건 배정 조건 (F11-7) */
-  properEvidence: boolean;
-  onboarding: OnboardingStage;
-  /** 90일 그레이스 종료일 — null 이면 그레이스 종료 */
-  graceEndsAt: string | null;
-  slaScore: number;
-  acceptRate: number;
-  onTimeRate: number;
-  proofRate: number;
-}
-
-export const SUPPLIERS: Supplier[] = [
-  {
-    id: "sp-001",
-    name: "전국화훼중계망㈜",
-    regions: ["전국"],
-    businessHours: "05:00 ~ 24:00",
-    nightSupport: true,
-    taxType: "GENERAL",
-    properEvidence: true,
-    onboarding: "ACTIVE",
-    graceEndsAt: null,
-    slaScore: 92,
-    acceptRate: 98,
-    onTimeRate: 95,
-    proofRate: 71,
-  },
-  {
-    id: "sp-002",
-    name: "부산제일꽃집",
-    regions: ["부산", "경남"],
-    businessHours: "07:00 ~ 21:00",
-    nightSupport: false,
-    taxType: "EXEMPT",
-    properEvidence: false,
-    onboarding: "ACTIVE",
-    graceEndsAt: "2026-10-14",
-    slaScore: 88,
-    acceptRate: 94,
-    onTimeRate: 91,
-    proofRate: 84,
-  },
-  {
-    id: "sp-003",
-    name: "대전중앙화원",
-    regions: ["대전", "충남"],
-    businessHours: "08:00 ~ 20:00",
-    nightSupport: false,
-    taxType: "SIMPLE",
-    properEvidence: false,
-    onboarding: "SETTLEMENT",
-    graceEndsAt: null,
-    slaScore: 0,
-    acceptRate: 0,
-    onTimeRate: 0,
-    proofRate: 0,
-  },
-];
-
-export function findSupplier(id: string | null) {
-  return SUPPLIERS.find((s) => s.id === id) ?? null;
-}
 
 export function findOrder(id: string) {
   return ORDERS.find((o) => o.id === id) ?? null;

@@ -10,6 +10,7 @@
 -- 격리 규칙
 --   · 고객사 귀속 테이블 : 본인이 속한 고객사의 행만
 --   · ZENO 공통 테이블   : 로그인한 사용자면 읽기 가능, 쓰기는 OPERATOR 만
+--   · 공급사 · 배송 상태는 ZENO SCM 소관이라 이 스키마에 없다
 --   · 판정 스냅샷 · 차단 로그 : 읽기만 허용 (수정 · 삭제 불가 — 감사 증거이므로)
 
 -- ── 프로토타입 정책 제거 ────────────────────────────────────
@@ -18,7 +19,7 @@ declare t text;
 begin
   foreach t in array array[
     'tenant', 'tenant_member', 'policy_version', 'policy_rule', 'wreath_product',
-    'external_recipient', 'funeral_venue', 'supplier', 'condolence_order',
+    'external_recipient', 'funeral_venue', 'condolence_order',
     'policy_decision_snapshot', 'blocked_attempt', 'approval_log'
   ]
   loop
@@ -89,7 +90,7 @@ end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['funeral_venue', 'supplier', 'wreath_product']
+  foreach t in array array['funeral_venue', 'wreath_product']
   loop
     execute format(
       'create policy shared_read on %I for select to authenticated using (true);', t);
