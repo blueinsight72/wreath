@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* 근조 맥락에 맞춘 절제된 뉴트럴 + 딥네이비 포인트 */
+  --color-canvas: #f4f6f9;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+
+  --color-ink: #141a22;
+  --color-ink-2: #55606f;
+  --color-ink-3: #8a94a4;
+
+  --color-line: #e0e5ec;
+  --color-line-2: #eef1f6;
+
+  --color-brand: #22405f;
+  --color-brand-2: #305a85;
+  --color-brand-soft: #eef3f8;
+
+  --color-warn: #a4680a;
+  --color-warn-soft: #fdf5e6;
+  --color-danger: #a52c2c;
+  --color-danger-soft: #fdefef;
+  --color-ok: #226a4a;
+  --color-ok-soft: #edf7f2;
+
+  --font-sans: var(--font-geist-sans), "Pretendard", "Pretendard Variable",
+    -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕",
+    system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 폼 요소 공통 — 모바일 웹 우선, 터치 타겟 확보 */
+.field-label {
+  @apply mb-1.5 block text-[13px] font-semibold text-ink;
+}
+.field-hint {
+  @apply mt-1.5 text-[12px] leading-relaxed text-ink-3;
+}
+.control {
+  @apply w-full rounded-lg border border-line bg-surface px-3.5 py-3 text-[15px] text-ink
+    outline-none transition
+    placeholder:text-ink-3
+    focus:border-brand-2 focus:ring-2 focus:ring-brand-2/15
+    disabled:bg-surface-2 disabled:text-ink-3;
+}
+select.control {
+  @apply appearance-none bg-[length:16px] bg-[right_0.9rem_center] bg-no-repeat pr-10;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238a94a4' stroke-width='1.6'%3E%3Cpath d='M4 6.5 8 10.5 12 6.5'/%3E%3C/svg%3E");
 }

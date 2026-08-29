@@ -1,69 +1,117 @@
-import Image from "next/image";
+import Link from "next/link";
+import { CURRENT_USER } from "@/lib/mock-data";
+
+type Entry = {
+  href: string;
+  screen: string;
+  title: string;
+  desc: string;
+  role: string;
+  ready: boolean;
+};
+
+const ENTRIES: Entry[] = [
+  {
+    href: "/apply",
+    screen: "S1",
+    title: "경조사 신청",
+    desc: "부고 정보를 입력하면 규정 판정부터 발주까지 자동 실행됩니다.",
+    role: "임직원",
+    ready: true,
+  },
+  {
+    href: "/approvals",
+    screen: "S5",
+    title: "승인 요청 처리",
+    desc: "사내 규정 초과·예외 건만 모바일에서 판단합니다.",
+    role: "승인권자",
+    ready: false,
+  },
+  {
+    href: "/proof",
+    screen: "S6",
+    title: "배송 증빙 등록",
+    desc: "로그인 없이 링크 한 번으로 배송 완료를 처리합니다.",
+    role: "공급사",
+    ready: false,
+  },
+  {
+    href: "/supplier",
+    screen: "S7 · S8",
+    title: "공급사 발주 어드민",
+    desc: "신규 발주 접수, 상태 관리, 온보딩.",
+    role: "공급사",
+    ready: false,
+  },
+  {
+    href: "/admin",
+    screen: "S9 ~ S11",
+    title: "총무 대시보드",
+    desc: "예외·SLA 모니터링, 수신자 마스터, 장례식장 DB.",
+    role: "총무 · 운영",
+    ready: false,
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="mx-auto w-full max-w-[520px] px-5 py-10">
+      <p className="text-[12px] font-bold tracking-[0.14em] text-ink-3">
+        ZENO-CND
+      </p>
+      <h1 className="mt-2 text-[26px] font-bold leading-tight tracking-tight text-ink">
+        경조사 화환 발송 관리
+      </h1>
+      <p className="mt-2 text-[14px] leading-relaxed text-ink-2">
+        {CURRENT_USER.company} · {CURRENT_USER.dept} {CURRENT_USER.name}{" "}
+        {CURRENT_USER.rank}님으로 로그인되어 있습니다.
+      </p>
+
+      <div className="mt-7 space-y-3">
+        {ENTRIES.map((entry) =>
+          entry.ready ? (
+            <Link
+              key={entry.href}
+              href={entry.href}
+              className="block rounded-xl border border-line bg-surface p-4 transition hover:border-brand-2 hover:shadow-sm"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              <EntryBody entry={entry} />
+            </Link>
+          ) : (
+            <div
+              key={entry.href}
+              className="rounded-xl border border-dashed border-line bg-surface-2 p-4 opacity-70"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+              <EntryBody entry={entry} />
+            </div>
+          )
+        )}
+      </div>
+
+      <p className="mt-8 text-[12px] leading-relaxed text-ink-3">
+        본 화면은 백엔드 연동 전 UI 검수용입니다. 표시되는 임직원·거래처·장례식장
+        정보는 모두 목업 데이터입니다.
+      </p>
     </div>
+  );
+}
+
+function EntryBody({ entry }: { entry: Entry }) {
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <span className="rounded-md border border-line bg-surface px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink-3">
+          {entry.screen}
+        </span>
+        <span className="text-[11.5px] font-semibold text-ink-3">{entry.role}</span>
+        {!entry.ready && (
+          <span className="ml-auto text-[11.5px] font-semibold text-ink-3">
+            준비 중
+          </span>
+        )}
+      </div>
+      <p className="mt-2 text-[15.5px] font-bold text-ink">{entry.title}</p>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">{entry.desc}</p>
+    </>
   );
 }
