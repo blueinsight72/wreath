@@ -25,7 +25,7 @@ const ENTRIES: Entry[] = [
     title: "승인 요청 처리",
     desc: "사내 규정 초과·예외 건만 모바일에서 판단합니다.",
     role: "승인권자",
-    ready: false,
+    ready: true,
   },
   {
     href: "/proof",
@@ -33,7 +33,7 @@ const ENTRIES: Entry[] = [
     title: "배송 증빙 등록",
     desc: "로그인 없이 링크 한 번으로 배송 완료를 처리합니다.",
     role: "공급사",
-    ready: false,
+    ready: true,
   },
   {
     href: "/supplier",
