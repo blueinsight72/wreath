@@ -7,6 +7,8 @@ import type {
   FuneralVenue,
   PolicyRule,
   RelationType,
+  ReligionType,
+  SenderCompany,
   WreathProduct,
 } from "./types";
 
@@ -339,3 +341,47 @@ export function findBudget(costCenter: string): DeptBudget {
     }
   );
 }
+
+/* ── 발신 명의 (S3) ────────────────────────────────── */
+
+/** 소속 법인과 발신 명의 법인이 다른 케이스를 지원한다 (F4-1) */
+export const SENDER_COMPANIES: SenderCompany[] = [
+  { id: "co-zeno", name: "제노㈜", ceoName: "윤도현", holding: false },
+  { id: "co-holdings", name: "제노홀딩스㈜", ceoName: "윤재경", holding: true },
+  { id: "co-labs", name: "제노랩스㈜", ceoName: "서민호", holding: false },
+];
+
+export function findSenderCompany(id: string): SenderCompany {
+  return SENDER_COMPANIES.find((c) => c.id === id) ?? SENDER_COMPANIES[0];
+}
+
+/** 종교 · 예식 유형별 애도 문구 (F4-2) */
+export const RIBBON_PHRASES: Record<ReligionType, string[]> = {
+  BUDDHIST: ["삼가 고인의 명복을 빕니다", "謹弔"],
+  CHRISTIAN: [
+    "주님의 위로가 함께하시기를 기도합니다",
+    "하나님의 위로가 함께하시기를",
+  ],
+  CATHOLIC: [
+    "고인의 영원한 안식을 기도합니다",
+    "주님 안에서 영원한 안식을 누리소서",
+  ],
+  NONE: ["삼가 조의를 표합니다", "깊은 애도를 표합니다"],
+  UNKNOWN: ["삼가 조의를 표합니다", "깊은 애도를 표합니다"],
+};
+
+/** 근조 리본에 들어가서는 안 되는 표현 (F4-5) */
+export const FORBIDDEN_TERMS = [
+  "축",
+  "祝",
+  "축하",
+  "화혼",
+  "결혼",
+  "개업",
+  "취임",
+  "번창",
+  "발전",
+];
+
+/** 리본 1매 권장 글자수 상한 */
+export const RIBBON_MAX_LENGTH = 20;

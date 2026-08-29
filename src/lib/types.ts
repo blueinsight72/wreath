@@ -120,6 +120,42 @@ export interface RequestDraft {
   note: string;
   /** S2에서 선택한 상품 */
   productId: string | null;
+  /** S3 발신 명의 유형 */
+  senderType: SenderType;
+  /** 발신 명의 법인 — 소속 법인과 다를 수 있다 (지주사 · 대표 계열사 명의) */
+  senderCompanyId: string;
+  /** 조문 참석 예정 여부 — 명의 분기 규칙에 사용 */
+  attending: boolean;
+  /** 애도 문구에 적용할 종교 유형 (S1 값이 기본, 여기서 조정 가능) */
+  phraseReligion: ReligionType;
+  /** 문구를 직접 고친 경우 */
+  phraseOverride: string;
+}
+
+/** 발신 명의 유형 (F4-1) */
+export type SenderType = "COMPANY" | "CEO" | "DEPT" | "PERSONAL";
+
+export const SENDER_TYPE_LABEL: Record<SenderType, string> = {
+  COMPANY: "회사 명의",
+  CEO: "대표이사 명의",
+  DEPT: "부서 명의",
+  PERSONAL: "개인 명의",
+};
+
+/** 발신 명의 법인 */
+export interface SenderCompany {
+  id: string;
+  name: string;
+  ceoName: string;
+  /** 지주사 여부 */
+  holding: boolean;
+}
+
+/** 리본 문구 검증 결과 (F4-5) */
+export interface RibbonIssue {
+  code: string;
+  message: string;
+  tone: "warn" | "danger";
 }
 
 export const EMPTY_DRAFT: RequestDraft = {
@@ -138,6 +174,11 @@ export const EMPTY_DRAFT: RequestDraft = {
   roomNo: "",
   note: "",
   productId: null,
+  senderType: "COMPANY",
+  senderCompanyId: "co-zeno",
+  attending: false,
+  phraseReligion: "UNKNOWN",
+  phraseOverride: "",
 };
 
 /* ── 규정 판정 · 상품 (S2) ─────────────────────────── */
