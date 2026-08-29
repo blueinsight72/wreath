@@ -137,9 +137,8 @@ export default function ApplyPage() {
     if (!draft.relationCode) next.relationCode = "관계를 선택해 주세요.";
     if (!draft.eventTypeCode) next.eventTypeCode = "경조 유형을 선택해 주세요.";
     if (!draft.eventAt) next.eventAt = "발인 일시를 입력해 주세요.";
-    if (!draft.visitAt) {
-      next.visitAt = "조문 예정 시각을 입력해 주세요. 화환 도착 시각 기준이 됩니다.";
-    } else if (draft.eventAt && draft.visitAt > draft.eventAt) {
+    // 조문 예정 시각은 선택 입력 — 부고 문자에 없는 경우가 많다
+    if (draft.visitAt && draft.eventAt && draft.visitAt > draft.eventAt) {
       next.visitAt = "조문 예정 시각이 발인 일시보다 늦습니다.";
     }
 
@@ -328,9 +327,8 @@ export default function ApplyPage() {
         <div data-error={Boolean(errors.visitAt)}>
           <Field
             label="조문 예정 시각"
-            required
             error={errors.visitAt}
-            hint="화환은 발인이 아니라 조문 시각 전에 도착해야 합니다. 이 시각을 기준으로 배송 희망 시각이 산정됩니다."
+            hint="알면 입력해 주세요. 화환은 발인이 아니라 조문 시각 전에 도착해야 하므로, 입력하시면 배송 희망 시각이 더 정확해집니다. 비워두면 발인 전 도착 기준으로 배정됩니다."
           >
             <input
               type="datetime-local"

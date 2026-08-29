@@ -21,25 +21,39 @@ export interface ParsedField<T = string> {
   evidence: string;
 }
 
+/** 유족 명단 한 줄 */
+export interface SurvivorGroup {
+  role: string;
+  names: string[];
+}
+
 export interface ParsedNotice {
   deceased: ParsedField | null;
-  chiefMourner: ParsedField | null;
+  /** 발송 주체 = 화환을 받을 상주 */
+  mourner: ParsedField | null;
   relation: ParsedField | null;
   eventTypeCode: ParsedField | null;
   venue: ParsedField | null;
   roomNo: ParsedField | null;
   eventAt: ParsedField | null;
   burialSite: ParsedField | null;
-  /** 상주명으로 매칭된 임직원 */
+  /** 유족 명단 — 임직원 마스터와 대조하는 데 쓴다 */
+  survivors: SurvivorGroup[];
+  /** 모바일 부고장 링크 — 빈소 호실 · 발인이 이 안에 있는 경우가 많다 */
+  noticeUrl: string | null;
   matchedEmployee: Employee | null;
-  /** 상주명으로 매칭된 거래처 수신자 */
   matchedRecipient: ExternalRecipient | null;
-  /** 빈소명으로 매칭된 장례식장 마스터 */
+  /** 대상자를 상주 표기에서 찾았는지, 유족 명단 대조로 찾았는지 */
+  matchedFrom: "MOURNER" | "SURVIVOR" | null;
+  /** 유족 명단에서 매칭된 경우의 역할 (아들 · 사위 등) */
+  matchedRole: string | null;
   matchedVenue: FuneralVenue | null;
 }
 
-/** 호칭 → 경조 유형 (신청자 기준이 아니라 상주 기준) */
-const RELATION_MAP: { keywords: string[]; label: string; code: string }[] = [
+const NAME = "[가-힣]{2,4}";
+
+/** 호칭 → 경조 유형. 상주 기준 관계다. */
+const RELATIONS: { keywords: string[]; label: string; code: string }[] = [
   { keywords: ["부친", "아버님", "아버지", "선친"], label: "부친", code: "PARENT_DEATH" },
   { keywords: ["모친", "어머님", "어머니", "자당"], label: "모친", code: "PARENT_DEATH" },
   { keywords: ["장인", "빙부"], label: "장인", code: "SPOUSE_PARENT_DEATH" },
@@ -48,26 +62,44 @@ const RELATION_MAP: { keywords: string[]; label: string; code: string }[] = [
   { keywords: ["시모", "시어머님"], label: "시모", code: "SPOUSE_PARENT_DEATH" },
   { keywords: ["배우자", "부군", "부인", "남편", "아내"], label: "배우자", code: "SPOUSE_DEATH" },
   { keywords: ["조부", "할아버님", "조모", "할머님"], label: "조부모", code: "GRANDPARENT_DEATH" },
-  { keywords: ["형", "누나", "동생", "형제", "자매"], label: "형제자매", code: "SIBLING_DEATH" },
+  { keywords: ["형님", "누님", "동생", "형제", "자매"], label: "형제자매", code: "SIBLING_DEATH" },
 ];
 
-const NAME = "[가-힣]{2,4}";
+const RELATION_WORDS = RELATIONS.flatMap((r) => r.keywords).join("|");
 
-function pick(
-  text: string,
-  patterns: { re: RegExp; confidence: Confidence; evidence: string }[]
-): ParsedField | null {
-  for (const p of patterns) {
-    const m = text.match(p.re);
-    if (m?.[1]) {
-      return {
-        value: m[1].trim(),
-        confidence: p.confidence,
-        evidence: p.evidence,
-      };
-    }
-  }
-  return null;
+/** 유족 명단에 쓰이는 역할어 */
+const SURVIVOR_ROLES = [
+  "상주",
+  "미망인",
+  "배우자",
+  "아들",
+  "며느리",
+  "자부",
+  "딸",
+  "사위",
+  "손",
+  "손자",
+  "손녀",
+  "형제",
+  "자매",
+];
+
+function field(
+  value: string,
+  confidence: Confidence,
+  evidence: string
+): ParsedField {
+  return { value: value.trim(), confidence, evidence };
+}
+
+/** "박효철님" → "박효철" — 이름 뒤에 붙는 존칭을 떼어낸다 */
+function stripHonorific(name: string) {
+  return name.trim().replace(/\s*(님|씨)$/, "");
+}
+
+/** 공백 · 괄호를 걷어낸 비교용 문자열 */
+function normalize(text: string) {
+  return text.replace(/[\s()（）]/g, "");
 }
 
 /** "2026년 9월 2일 오전 7시" → "2026-09-02T07:00" */
@@ -89,126 +121,222 @@ function parseDateTime(raw: string): string | null {
   return `${d[1]}-${pad(Number(d[2]))}-${pad(Number(d[3]))}T${pad(hour)}:${pad(minute)}`;
 }
 
-export function parseNotice(text: string): ParsedNotice {
-  const clean = text.replace(/\r/g, "");
+/** 유족 명단 파싱 — "아들\n전종택" 형태와 "아들: 전종택" 형태를 모두 받는다 */
+function parseSurvivors(lines: string[]): SurvivorGroup[] {
+  const groups: SurvivorGroup[] = [];
+  const splitNames = (raw: string) =>
+    raw
+      .split(/[,、·\/]/)
+      .map((n) => n.trim())
+      .filter((n) => new RegExp(`^${NAME}$`).test(n));
 
-  const deceased = pick(clean, [
-    {
-      re: new RegExp(`故\\s*(${NAME})`),
-      confidence: "HIGH",
-      evidence: "故 표기 뒤 이름",
-    },
-    {
-      re: new RegExp(`고\\s*인\\s*[:：]\\s*(${NAME})`),
-      confidence: "HIGH",
-      evidence: "고인 라벨",
-    },
-  ]);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
 
-  const chiefMourner = pick(clean, [
-    {
-      re: new RegExp(`상\\s*주\\s*[:：]\\s*(${NAME})`),
-      confidence: "HIGH",
-      evidence: "상주 라벨",
-    },
-    {
-      re: new RegExp(`(?:미망인|장남|차남|장녀|아들|딸)\\s*[:：]?\\s*(${NAME})`),
-      confidence: "MEDIUM",
-      evidence: "유족 호칭 뒤 이름",
-    },
-  ]);
+    const inline = line.match(new RegExp(`^(${SURVIVOR_ROLES.join("|")})\\s*[:：]\\s*(.+)$`));
+    if (inline) {
+      const names = splitNames(inline[2]);
+      if (names.length) groups.push({ role: inline[1], names });
+      continue;
+    }
 
-  // 호칭으로 경조 유형 추정
-  let relation: ParsedField | null = null;
-  let eventTypeCode: ParsedField | null = null;
-  for (const entry of RELATION_MAP) {
-    const hit = entry.keywords.find((k) => clean.includes(k));
-    if (hit) {
-      relation = {
-        value: entry.label,
-        confidence: "MEDIUM",
-        evidence: `본문의 "${hit}" 표현`,
-      };
-      eventTypeCode = {
-        value: entry.code,
-        confidence: "MEDIUM",
-        evidence: `"${hit}" 호칭 기준 추정`,
-      };
-      break;
+    if (SURVIVOR_ROLES.includes(line) && lines[i + 1]) {
+      const names = splitNames(lines[i + 1]);
+      if (names.length) {
+        groups.push({ role: line, names });
+        i += 1;
+      }
     }
   }
 
-  const venue = pick(clean, [
-    {
-      re: /빈\s*소\s*[:：]\s*([^\n,]+?)(?:\s+[특별VIP0-9]+\s*호실|\n|$)/,
-      confidence: "HIGH",
-      evidence: "빈소 라벨",
-    },
-    {
-      re: /([가-힣A-Za-z0-9 ]*(?:장례식장|장례문화원|병원))/,
-      confidence: "LOW",
-      evidence: "장례식장 명칭 패턴 추정",
-    },
-  ]);
+  return groups;
+}
 
-  const roomNo = pick(clean, [
-    {
-      re: /((?:특|별|VIP)?\s*\d{0,2}\s*호실)/,
-      confidence: "HIGH",
-      evidence: "호실 표기",
-    },
-  ]);
+export function parseNotice(text: string): ParsedNotice {
+  const clean = text.replace(/\r/g, "");
+  const lines = clean
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
 
-  const eventAtRaw = pick(clean, [
-    {
-      re: /발\s*인\s*[:：]?\s*([^\n]+)/,
-      confidence: "HIGH",
-      evidence: "발인 라벨",
-    },
-  ]);
+  /* 고인 */
+  let deceased: ParsedField | null = null;
+  const deceasedByMark = clean.match(new RegExp(`故\\s*(${NAME})`));
+  const deceasedByLabel = clean.match(new RegExp(`고\\s*인\\s*[:：]\\s*(${NAME})`));
+  if (deceasedByMark) {
+    deceased = field(stripHonorific(deceasedByMark[1]), "HIGH", "故 표기 뒤 이름");
+  } else if (deceasedByLabel) {
+    deceased = field(stripHonorific(deceasedByLabel[1]), "HIGH", "고인 라벨");
+  }
 
-  const eventAtValue = eventAtRaw ? parseDateTime(eventAtRaw.value) : null;
-  const eventAt: ParsedField | null = eventAtValue
-    ? {
-        value: eventAtValue,
-        confidence: /오전|오후|\d{1,2}\s*시/.test(eventAtRaw!.value)
-          ? "HIGH"
-          : "MEDIUM",
-        evidence: eventAtRaw!.evidence,
+  /* 상주 + 관계 — "OOO님의 장모" 형태가 가장 확실한 단서다 */
+  let mourner: ParsedField | null = null;
+  let relation: ParsedField | null = null;
+  let eventTypeCode: ParsedField | null = null;
+
+  const possessive = clean.match(
+    new RegExp(`(${NAME})\\s*님?의\\s*(${RELATION_WORDS})`)
+  );
+  if (possessive) {
+    const who = stripHonorific(possessive[1]);
+    const quote = `"${who}님의 ${possessive[2]}"`;
+    mourner = field(who, "HIGH", `${quote} 표현`);
+    const entry = RELATIONS.find((r) => r.keywords.includes(possessive[2]));
+    if (entry) {
+      relation = field(entry.label, "HIGH", `${quote} 표현`);
+      eventTypeCode = field(entry.code, "HIGH", `${entry.label} 기준`);
+    }
+  }
+
+  // "박재범 [사위] 드림" / "홍길동 올림"
+  if (!mourner) {
+    const signed = clean.match(
+      new RegExp(`(${NAME})\\s*(?:\\[[^\\]]*\\])?\\s*(?:드림|올림|배상)`)
+    );
+    if (signed) {
+      mourner = field(stripHonorific(signed[1]), "HIGH", "부고 발신인 서명");
+    }
+  }
+
+  if (!mourner) {
+    const labeled = clean.match(new RegExp(`상\\s*주\\s*[:：]\\s*(${NAME})`));
+    if (labeled) mourner = field(stripHonorific(labeled[1]), "HIGH", "상주 라벨");
+  }
+
+  /* 유족 명단 */
+  const survivors = parseSurvivors(lines);
+
+  // 상주를 못 찾았으면 유족 명단 첫 사람을 후보로 두되 신뢰도를 낮게 준다
+  if (!mourner && survivors.length > 0) {
+    const first = survivors[0];
+    mourner = field(
+      stripHonorific(first.names[0]),
+      "LOW",
+      `유족 명단의 "${first.role}" 첫 번째 이름 — 확인 필요`
+    );
+  }
+
+  /* 관계를 아직 못 잡았으면 본문 표현으로 추정 */
+  if (!relation) {
+    for (const entry of RELATIONS) {
+      const hit = entry.keywords.find((k) => clean.includes(k));
+      if (hit) {
+        relation = field(entry.label, "MEDIUM", `본문의 "${hit}" 표현`);
+        eventTypeCode = field(entry.code, "MEDIUM", `"${hit}" 호칭 기준 추정`);
+        break;
       }
+    }
+  }
+
+  /* 빈소 — 라벨이 없으면 헤더 줄에서 찾는다 */
+  let venue: ParsedField | null = null;
+  const venueByLabel = clean.match(
+    /빈\s*소\s*[:：]\s*([^\n,]+?)(?:\s+[특별VIP\d]+\s*호실|\n|$)/
+  );
+  const venueByHeader = clean.match(
+    /^\s*\[?\s*부\s*고\s*\]?\s*([^\n(（]+)/
+  );
+  const venueByPattern = clean.match(
+    /([가-힣A-Za-z0-9 ]*(?:장례식장|장례문화원|추모관|병원))/
+  );
+  if (venueByLabel) {
+    venue = field(venueByLabel[1], "HIGH", "빈소 라벨");
+  } else if (venueByHeader && /장례|병원|추모/.test(venueByHeader[1])) {
+    venue = field(venueByHeader[1], "MEDIUM", "부고 머리글의 장소 표기");
+  } else if (venueByPattern) {
+    venue = field(venueByPattern[1], "LOW", "장례식장 명칭 패턴 추정");
+  }
+
+  const roomMatch = clean.match(/((?:특|별|VIP)?\s*\d{0,2}\s*호실)/);
+  const roomNo = roomMatch ? field(roomMatch[1], "HIGH", "호실 표기") : null;
+
+  /* 발인 */
+  const eventAtRaw = clean.match(/발\s*인\s*[:：]?\s*([^\n]+)/);
+  const eventAtValue = eventAtRaw ? parseDateTime(eventAtRaw[1]) : null;
+  const eventAt = eventAtValue
+    ? field(
+        eventAtValue,
+        /오전|오후|\d{1,2}\s*시/.test(eventAtRaw![1]) ? "HIGH" : "MEDIUM",
+        "발인 라벨"
+      )
     : null;
 
-  const burialSite = pick(clean, [
-    { re: /장\s*지\s*[:：]?\s*([^\n]+)/, confidence: "HIGH", evidence: "장지 라벨" },
-  ]);
-
-  // 상주명 기준 마스터 자동 매칭 (F2-C-4)
-  const mournerName = chiefMourner?.value ?? "";
-  const matchedEmployee =
-    EMPLOYEES.find((e) => mournerName && e.name === mournerName) ?? null;
-  const matchedRecipient =
-    !matchedEmployee && mournerName
-      ? (EXTERNAL_RECIPIENTS.find((r) => r.name === mournerName) ?? null)
-      : null;
-
-  const venueName = venue?.value ?? "";
-  const matchedVenue = venueName
-    ? (FUNERAL_VENUES.find(
-        (v) => v.name === venueName || v.name.includes(venueName) || venueName.includes(v.name)
-      ) ?? null)
+  const burialMatch = clean.match(/장\s*지\s*[:：]?\s*([^\n]+)/);
+  const burialSite = burialMatch
+    ? field(burialMatch[1], "HIGH", "장지 라벨")
     : null;
+
+  /* 모바일 부고장 링크 */
+  const urlMatch = clean.match(/https?:\/\/[^\s]+/);
+  const noticeUrl = urlMatch ? urlMatch[0] : null;
+
+  /* 마스터 매칭 (F2-C-4) — 상주 표기를 먼저 보고, 없으면 유족 명단 전체를 대조 */
+  let matchedEmployee: Employee | null = null;
+  let matchedRecipient: ExternalRecipient | null = null;
+  let matchedFrom: ParsedNotice["matchedFrom"] = null;
+  let matchedRole: string | null = null;
+
+  if (mourner) {
+    const e = EMPLOYEES.find((x) => x.name === mourner!.value);
+    if (e) {
+      matchedEmployee = e;
+      matchedFrom = "MOURNER";
+    } else {
+      const r = EXTERNAL_RECIPIENTS.find((x) => x.name === mourner!.value);
+      if (r) {
+        matchedRecipient = r;
+        matchedFrom = "MOURNER";
+      }
+    }
+  }
+
+  if (!matchedEmployee && !matchedRecipient) {
+    outer: for (const group of survivors) {
+      for (const name of group.names) {
+        const e = EMPLOYEES.find((x) => x.name === name);
+        if (e) {
+          matchedEmployee = e;
+          matchedFrom = "SURVIVOR";
+          matchedRole = group.role;
+          break outer;
+        }
+        const r = EXTERNAL_RECIPIENTS.find((x) => x.name === name);
+        if (r) {
+          matchedRecipient = r;
+          matchedFrom = "SURVIVOR";
+          matchedRole = group.role;
+          break outer;
+        }
+      }
+    }
+  }
+
+  /* 장례식장 매칭 — 공백 · 괄호 차이를 무시하고 비교한다 */
+  let matchedVenue: FuneralVenue | null = null;
+  if (venue) {
+    const key = normalize(venue.value);
+    matchedVenue =
+      FUNERAL_VENUES.find((v) => {
+        const target = normalize(v.name);
+        return target === key || target.includes(key) || key.includes(target);
+      }) ?? null;
+  }
 
   return {
     deceased,
-    chiefMourner,
+    mourner,
     relation,
     eventTypeCode,
     venue,
     roomNo,
     eventAt,
     burialSite,
+    survivors,
+    noticeUrl,
     matchedEmployee,
     matchedRecipient,
+    matchedFrom,
+    matchedRole,
     matchedVenue,
   };
 }
@@ -224,11 +352,25 @@ export const SAMPLE_IMAGE_NOTICE = `訃告
 장지: 분당 메모리얼파크
 연락처: 010-2345-6789`;
 
-export const SAMPLE_TEXT_NOTICE = `[부고]
-저희 아버님께서 2026년 8월 29일 소천하셨기에 알려드립니다.
+/** 실제로 돌아다니는 모바일 부고장 형식 — 발인 · 호실이 링크 안에 있다 */
+export const SAMPLE_TEXT_NOTICE = `[부고] 삼성서울병원장례식장(일원동)
 
-故 이한수 님
-상주: 이도현
-빈소: 서울아산병원 장례식장 특2호실
-발인: 2026년 9월 2일(수) 오전 7시
-장지: 경기 광주 시안가족추모공원`;
+이도현님의 장모 故 박효철님께서 별세 하셨기에 아래와 같이 부고를 전해 드립니다.
+
+▶ 이도현 [사위] 드림 ◀
+
+일일이 연락드리지 못함을 부디 혜량해 주시길 바라오며 아래의 모바일 부고장으로 부고를 알려드립니다.
+
+■모바일부고장■
+https://example.com/page/funeral/view.php?uri=P189TVRNPSZfbTO3Mg==
+
+아들
+전종택
+며느리
+허정원
+딸
+전미경, 전미라
+사위
+김종태, 이도현
+손
+전희영, 전윤지, 김수민, 김여진, 박정빈, 박성빈`;

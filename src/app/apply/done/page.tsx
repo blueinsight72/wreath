@@ -195,8 +195,10 @@ export default function DonePage() {
               label="도착 희망"
               value={
                 draft.visitAt
-                  ? `${formatDateTime(draft.visitAt)} 이전`
-                  : "조문 시각 미입력"
+                  ? `${formatDateTime(draft.visitAt)} 이전 (조문 시각)`
+                  : draft.eventAt
+                    ? `${formatDateTime(draft.eventAt)} 이전 (발인 기준)`
+                    : "일시 미입력"
               }
             />
           </Card>

@@ -251,7 +251,7 @@ export default function PolicyPage() {
           recommendedId={defaultId}
           internalLimit={decision.internalLimit}
           legalLimit={decision.legalLimit}
-          visitAt={draft.visitAt}
+          visitAt={draft.visitAt || draft.eventAt}
           onSelect={setChosenId}
         />
       </Section>

@@ -50,7 +50,7 @@ export default function NoticePage() {
       ...EMPTY_DRAFT,
       targetKind: parsed.matchedRecipient ? "EXTERNAL" : "EMPLOYEE",
       targetId: target?.id ?? null,
-      manualTargetName: target ? "" : (parsed.chiefMourner?.value ?? ""),
+      manualTargetName: target ? "" : (parsed.mourner?.value ?? ""),
       eventTypeCode: parsed.eventTypeCode?.value ?? "",
       eventAt: parsed.eventAt?.value ?? "",
       venueId: parsed.matchedVenue?.id ?? null,
@@ -60,6 +60,18 @@ export default function NoticePage() {
     });
     router.push("/apply");
   };
+
+  const missing = parsed
+    ? [
+        !parsed.eventAt && "발인 일시",
+        !parsed.roomNo && "빈소 호실",
+      ].filter(Boolean)
+    : [];
+
+  // 상주를 확실히 못 잡은 경우에만 강한 경고를 띄운다.
+  // 마스터 미매칭은 별도 항목에서 안내하므로 여기서 겹쳐 경고하지 않는다.
+  const mournerUncertain =
+    parsed !== null && (parsed.mourner === null || parsed.mourner.confidence === "LOW");
 
   return (
     <MobileShell
@@ -75,10 +87,7 @@ export default function NoticePage() {
             </p>
           </div>
         ) : (
-          <Button
-            disabled={!text.trim()}
-            onClick={() => run(text, "TEXT")}
-          >
+          <Button disabled={!text.trim()} onClick={() => run(text, "TEXT")}>
             인식하기
           </Button>
         )
@@ -136,17 +145,25 @@ export default function NoticePage() {
 
       {parsed && (
         <>
-          <Callout tone="warn" title="확인이 필요한 초안입니다">
-            {source === "IMAGE"
-              ? `${imageName ?? "업로드한 이미지"}에서 추출한 결과입니다. `
-              : "붙여넣은 문자에서 추출한 결과입니다. "}
-            신뢰도가 낮은 항목은 특히 원문과 대조해 주세요.
+          <Callout
+            tone={mournerUncertain ? "danger" : "warn"}
+            title={
+              mournerUncertain
+                ? "대상자를 반드시 확인해 주세요"
+                : "확인이 필요한 초안입니다"
+            }
+          >
+            {mournerUncertain
+              ? "부고에 상주가 명확히 표기되어 있지 않습니다. 대상자가 바뀌면 규정 등급과 계정과목이 모두 달라집니다."
+              : source === "IMAGE"
+                ? `${imageName ?? "업로드한 이미지"}에서 추출한 결과입니다. 신뢰도가 낮은 항목은 원문과 대조해 주세요.`
+                : "붙여넣은 문자에서 추출한 결과입니다. 신뢰도가 낮은 항목은 원문과 대조해 주세요."}
           </Callout>
 
           <Section title="추출 결과">
             <Card className="divide-y divide-line-2 p-0">
               <FieldRow label="고인" field={parsed.deceased} />
-              <FieldRow label="상주" field={parsed.chiefMourner} />
+              <FieldRow label="상주" field={parsed.mourner} />
               <FieldRow label="관계" field={parsed.relation} />
               <FieldRow
                 label="경조 유형"
@@ -174,12 +191,82 @@ export default function NoticePage() {
             </Card>
           </Section>
 
+          {missing.length > 0 && (
+            <div className="-mt-3 mb-7">
+              <Callout
+                tone="warn"
+                title={`${missing.join(" · ")} 정보가 문자에 없습니다`}
+              >
+                {parsed.noticeUrl ? (
+                  <>
+                    모바일 부고장 링크에 있을 가능성이 높습니다. 링크를 확인한 뒤
+                    신청서에서 입력해 주세요.
+                    <a
+                      href={parsed.noticeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 block truncate font-mono text-[11.5px] underline underline-offset-2"
+                    >
+                      {parsed.noticeUrl}
+                    </a>
+                  </>
+                ) : (
+                  "신청서에서 직접 입력해 주세요."
+                )}
+              </Callout>
+            </div>
+          )}
+
+          {parsed.survivors.length > 0 && (
+            <Section
+              title="유족 명단"
+              description="명단 전체를 임직원 · 거래처 마스터와 대조합니다."
+            >
+              <Card className="divide-y divide-line-2 p-0">
+                {parsed.survivors.map((group) => (
+                  <div key={group.role} className="flex gap-3 px-4 py-2.5">
+                    <span className="w-[52px] shrink-0 text-[12.5px] font-semibold text-ink-3">
+                      {group.role}
+                    </span>
+                    <span className="min-w-0 flex-1 text-[13px] text-ink">
+                      {group.names.map((name, i) => {
+                        const hit =
+                          parsed.matchedFrom === "SURVIVOR" &&
+                          (parsed.matchedEmployee?.name === name ||
+                            parsed.matchedRecipient?.name === name);
+                        return (
+                          <span key={name}>
+                            {i > 0 && ", "}
+                            <span
+                              className={
+                                hit
+                                  ? "rounded bg-ok-soft px-1 py-0.5 font-bold text-ok"
+                                  : ""
+                              }
+                            >
+                              {name}
+                            </span>
+                          </span>
+                        );
+                      })}
+                    </span>
+                  </div>
+                ))}
+              </Card>
+            </Section>
+          )}
+
           <Section title="마스터 매칭">
             {parsed.matchedEmployee ? (
               <Callout tone="ok" title="임직원으로 매칭되었습니다">
                 {parsed.matchedEmployee.name} {parsed.matchedEmployee.rank} ·{" "}
                 {parsed.matchedEmployee.dept} · 사번{" "}
                 {parsed.matchedEmployee.empNo}
+                {parsed.matchedFrom === "SURVIVOR" && (
+                  <span className="mt-1 block">
+                    유족 명단의 {parsed.matchedRole} 항목에서 찾았습니다.
+                  </span>
+                )}
               </Callout>
             ) : parsed.matchedRecipient ? (
               <Callout tone="info" title="거래처 수신자로 매칭되었습니다">
@@ -188,9 +275,14 @@ export default function NoticePage() {
                 {parsed.matchedRecipient.regime === "UNKNOWN"
                   ? "미확인"
                   : parsed.matchedRecipient.regime}
+                {parsed.matchedFrom === "SURVIVOR" && (
+                  <span className="mt-1 block">
+                    유족 명단의 {parsed.matchedRole} 항목에서 찾았습니다.
+                  </span>
+                )}
               </Callout>
             ) : (
-              <Callout tone="warn" title="상주를 마스터에서 찾지 못했습니다">
+              <Callout tone="warn" title="유족 중 마스터에 등록된 사람이 없습니다">
                 신청서에서 대상자를 직접 지정해 주세요. 매칭되지 않은 건은
                 자동승인 대상이 아닙니다.
               </Callout>
@@ -231,8 +323,8 @@ export default function NoticePage() {
           </Section>
 
           <p className="mt-6 text-[11.5px] leading-relaxed text-ink-3">
-            조문 예정 시각은 부고에 없는 정보라 신청서에서 직접 입력하셔야
-            합니다. 화환 도착 시각의 기준이 되는 값입니다.
+            조문 예정 시각은 부고에 없는 정보라 선택 입력입니다. 알고 계시면
+            신청서에서 넣어 주세요. 비워두면 발인 전 도착 기준으로 배정됩니다.
           </p>
         </>
       )}
@@ -269,7 +361,7 @@ function FieldRow({
           </>
         ) : (
           <span className="text-[13px] text-ink-3">
-            인식하지 못했습니다 — 직접 입력 필요
+            문자에 없습니다 — 직접 입력 필요
           </span>
         )}
       </span>
