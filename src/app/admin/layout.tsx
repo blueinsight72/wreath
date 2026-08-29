@@ -7,6 +7,7 @@ const TABS = [
   { href: "/admin", label: "대시보드", screen: "S9" },
   { href: "/admin/recipients", label: "수신자 마스터", screen: "S10" },
   { href: "/admin/venues", label: "장례식장 DB", screen: "S11" },
+  { href: "/admin/policies", label: "규정 관리", screen: "S12" },
 ];
 
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
