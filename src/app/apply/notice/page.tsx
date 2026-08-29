@@ -22,6 +22,7 @@ import {
   type ParsedNotice,
 } from "@/lib/notice-parser";
 import { EMPTY_DRAFT } from "@/lib/types";
+import { useCurrentTenant } from "@/lib/tenant-context";
 
 const TONE: Record<Confidence, "ok" | "warn" | "danger"> = {
   HIGH: "ok",
@@ -31,6 +32,7 @@ const TONE: Record<Confidence, "ok" | "warn" | "danger"> = {
 
 export default function NoticePage() {
   const router = useRouter();
+  const tenant = useCurrentTenant();
   const [text, setText] = useState("");
   const [parsed, setParsed] = useState<ParsedNotice | null>(null);
   const [source, setSource] = useState<"TEXT" | "IMAGE">("TEXT");
@@ -40,7 +42,7 @@ export default function NoticePage() {
   const run = (raw: string, from: "TEXT" | "IMAGE") => {
     setSource(from);
     setText(raw);
-    setParsed(parseNotice(raw));
+    setParsed(parseNotice(raw, tenant.id));
   };
 
   const applyToForm = () => {

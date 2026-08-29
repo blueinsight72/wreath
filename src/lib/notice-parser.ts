@@ -2,7 +2,8 @@
 // 파싱 결과는 언제나 "초안"이며, 반드시 사용자가 1회 확인해야 실행된다 (F2-C-3).
 // 실제 구현에서는 서버가 텍스트 + OCR/VLM 으로 처리한다. 여기서는 붙여넣은
 // 텍스트를 규칙 기반으로 분해해 화면 동작을 검증한다.
-import { EMPLOYEES, EXTERNAL_RECIPIENTS, FUNERAL_VENUES } from "./mock-data";
+import { FUNERAL_VENUES } from "./mock-data";
+import { dataOf } from "./tenant-data";
 import type { Employee, ExternalRecipient, FuneralVenue } from "./types";
 
 /** 항목별 신뢰도 (F2-C-5) */
@@ -152,7 +153,7 @@ function parseSurvivors(lines: string[]): SurvivorGroup[] {
   return groups;
 }
 
-export function parseNotice(text: string): ParsedNotice {
+export function parseNotice(text: string, tenantId: string): ParsedNotice {
   const clean = text.replace(/\r/g, "");
   const lines = clean
     .split("\n")
@@ -276,13 +277,16 @@ export function parseNotice(text: string): ParsedNotice {
   let matchedFrom: ParsedNotice["matchedFrom"] = null;
   let matchedRole: string | null = null;
 
+  // 마스터 대조는 반드시 해당 고객사 안에서만 한다
+  const { employees, recipients } = dataOf(tenantId);
+
   if (mourner) {
-    const e = EMPLOYEES.find((x) => x.name === mourner!.value);
+    const e = employees.find((x) => x.name === mourner!.value);
     if (e) {
       matchedEmployee = e;
       matchedFrom = "MOURNER";
     } else {
-      const r = EXTERNAL_RECIPIENTS.find((x) => x.name === mourner!.value);
+      const r = recipients.find((x) => x.name === mourner!.value);
       if (r) {
         matchedRecipient = r;
         matchedFrom = "MOURNER";
@@ -293,14 +297,14 @@ export function parseNotice(text: string): ParsedNotice {
   if (!matchedEmployee && !matchedRecipient) {
     outer: for (const group of survivors) {
       for (const name of group.names) {
-        const e = EMPLOYEES.find((x) => x.name === name);
+        const e = employees.find((x) => x.name === name);
         if (e) {
           matchedEmployee = e;
           matchedFrom = "SURVIVOR";
           matchedRole = group.role;
           break outer;
         }
-        const r = EXTERNAL_RECIPIENTS.find((x) => x.name === name);
+        const r = recipients.find((x) => x.name === name);
         if (r) {
           matchedRecipient = r;
           matchedFrom = "SURVIVOR";

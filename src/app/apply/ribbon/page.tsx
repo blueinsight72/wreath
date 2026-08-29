@@ -14,12 +14,9 @@ import {
   StepBar,
 } from "@/components/ui";
 import { saveDraft, useDraft } from "@/lib/draft";
-import {
-  CURRENT_USER,
-  RIBBON_MAX_LENGTH,
-  SENDER_COMPANIES,
-  findSenderCompany,
-} from "@/lib/mock-data";
+import { RIBBON_MAX_LENGTH } from "@/lib/mock-data";
+import { dataOf, findSenderCompany } from "@/lib/tenant-data";
+import { useCurrentTenant } from "@/lib/tenant-context";
 import {
   buildRibbon,
   isCrossCompany,
@@ -38,6 +35,7 @@ const SENDER_TYPES: SenderType[] = ["COMPANY", "CEO", "DEPT", "PERSONAL"];
 
 export default function RibbonPage() {
   const router = useRouter();
+  const tenant = useCurrentTenant();
   const stored = useDraft();
   const [edits, setEdits] = useState<Partial<RequestDraft>>({});
 
@@ -46,13 +44,18 @@ export default function RibbonPage() {
     // S1에서 고른 종교를 문구 기본값으로 가져온다
     const base: RequestDraft = {
       ...stored,
+      // 고객사마다 발신 명의 법인이 다르므로 기본값을 그 고객사 것으로 맞춘다
+      senderCompanyId:
+        dataOf(tenant.id).senderCompanies.find(
+          (c) => c.id === stored.senderCompanyId
+        )?.id ?? dataOf(tenant.id).senderCompanies[0].id,
       phraseReligion:
         stored.phraseReligion === "UNKNOWN" && stored.religion !== "UNKNOWN"
           ? stored.religion
           : stored.phraseReligion,
     };
     return { ...base, ...edits };
-  }, [stored, edits]);
+  }, [stored, edits, tenant.id]);
 
   if (!draft) {
     return (
@@ -78,12 +81,14 @@ export default function RibbonPage() {
   const patch = (values: Partial<RequestDraft>) =>
     setEdits((prev) => ({ ...prev, ...values }));
 
-  const ribbon = buildRibbon(draft);
+  const ribbon = buildRibbon(draft, tenant.id);
   const issues = validateRibbon(ribbon);
   const hasBlocking = issues.some((i) => i.tone === "danger");
-  const crossCompany = isCrossCompany(draft.senderCompanyId);
+  const crossCompany = isCrossCompany(tenant.id, draft.senderCompanyId);
   const options = phraseOptions(draft);
-  const company = findSenderCompany(draft.senderCompanyId);
+  const company = findSenderCompany(tenant.id, draft.senderCompanyId);
+  const senderCompanies = dataOf(tenant.id).senderCompanies;
+  const me = dataOf(tenant.id).currentUser;
 
   return (
     <MobileShell
@@ -148,7 +153,7 @@ export default function RibbonPage() {
           label="발신 명의 법인"
           hint={
             crossCompany
-              ? `신청자 소속은 ${CURRENT_USER.company}입니다. 다른 법인 명의로 발송됩니다.`
+              ? `신청자 소속은 ${me.company}입니다. 다른 법인 명의로 발송됩니다.`
               : undefined
           }
         >
@@ -157,7 +162,7 @@ export default function RibbonPage() {
             value={draft.senderCompanyId}
             onChange={(e) => patch({ senderCompanyId: e.target.value })}
           >
-            {SENDER_COMPANIES.map((c) => (
+            {senderCompanies.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
                 {c.holding ? " (지주사)" : ""}

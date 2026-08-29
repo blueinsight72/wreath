@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Badge, Button, Callout, Card, DeskShell, Field, Stat } from "@/components/ui";
-import { EXTERNAL_RECIPIENTS } from "@/lib/mock-data";
+import { dataOf } from "@/lib/tenant-data";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { useCurrentTenant } from "@/lib/tenant-context";
 import {
@@ -24,8 +24,8 @@ const EXTERNAL_REGIMES: Regime[] = ["R1", "R2", "R3", "UNKNOWN"];
 
 export default function RecipientsPage() {
   const tenant = useCurrentTenant();
-  // 거래처는 고객사마다 다르다 — 목업은 제노㈜ 기준
-  const seed = tenant.id === "tn-zeno" ? EXTERNAL_RECIPIENTS : [];
+  // 거래처는 고객사마다 다르다
+  const seed = dataOf(tenant.id).recipients;
   const [rows, setRows] = useState<ExternalRecipient[]>(seed);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftRegime, setDraftRegime] = useState<Regime>("UNKNOWN");

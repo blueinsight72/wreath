@@ -13,13 +13,9 @@ import {
 } from "@/components/ui";
 import { useDraft } from "@/lib/draft";
 import { formatDateTime, formatKRW } from "@/lib/format";
-import {
-  CURRENT_USER,
-  WREATH_PRODUCTS,
-  findEmployee,
-  findRecipient,
-  findVenue,
-} from "@/lib/mock-data";
+import { WREATH_PRODUCTS, findVenue } from "@/lib/mock-data";
+import { dataOf, findEmployee, findRecipient } from "@/lib/tenant-data";
+import { useCurrentTenant } from "@/lib/tenant-context";
 import { decideExecution, decidePolicy } from "@/lib/policy";
 import { buildRibbon } from "@/lib/ribbon";
 import { ACCOUNT_LABEL } from "@/lib/types";
@@ -35,16 +31,18 @@ interface Stage {
 }
 
 export default function DonePage() {
+  const tenant = useCurrentTenant();
+  const me = dataOf(tenant.id).currentUser;
   const draft = useDraft();
   const [cancelled, setCancelled] = useState(false);
 
   const model = useMemo(() => {
     if (!draft) return null;
-    const decision = decidePolicy(draft, CURRENT_USER.costCenter);
+    const decision = decidePolicy(draft, me.costCenter, tenant.id);
     const product = WREATH_PRODUCTS.find((p) => p.id === draft.productId) ?? null;
     const execution = decideExecution(decision, product);
-    return { decision, product, execution, ribbon: buildRibbon(draft) };
-  }, [draft]);
+    return { decision, product, execution, ribbon: buildRibbon(draft, tenant.id) };
+  }, [draft, tenant.id, me.costCenter]);
 
   if (!draft || !model) {
     return (
@@ -74,11 +72,11 @@ export default function DonePage() {
   const targetName =
     draft.targetKind === "EMPLOYEE"
       ? (() => {
-          const e = findEmployee(draft.targetId);
+          const e = findEmployee(tenant.id, draft.targetId);
           return e ? `${e.name} ${e.rank}` : "대상자";
         })()
       : (() => {
-          const r = findRecipient(draft.targetId);
+          const r = findRecipient(tenant.id, draft.targetId);
           return r ? r.name : draft.manualTargetName || "수신자";
         })();
 
@@ -210,7 +208,7 @@ export default function DonePage() {
         >
           <Card className="divide-y divide-line-2 p-0">
             <NotifyRow
-              who={`신청자 · ${CURRENT_USER.name} ${CURRENT_USER.rank}`}
+              who={`신청자 · ${me.name} ${me.rank}`}
               when="접수 · 승인 · 발주 · 배송완료"
               sent={!cancelled}
             />

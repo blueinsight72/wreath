@@ -2,14 +2,11 @@
 // 실제 시스템에서는 서버에서 판정하고 스냅샷을 불변 저장한다.
 import {
   LEGAL_WREATH_LIMIT,
-  SENT_RECORDS,
   WREATH_PRODUCTS,
-  findBudget,
-  findEmployee,
   findEventType,
-  findRecipient,
   findVenue,
 } from "./mock-data";
+import { dataOf, findBudget, findEmployee, findRecipient } from "./tenant-data";
 import { DEFAULT_TENANT_ID, findTenant, rulesOf } from "./tenants";
 import {
   RANK_TIER_LABEL,
@@ -41,14 +38,17 @@ function fmt(won: number | null) {
 }
 
 /** 1. 수신자 레짐 판정 */
-function resolveRegime(draft: RequestDraft): { regime: Regime; basis: string } {
+function resolveRegime(
+  draft: RequestDraft,
+  tenantId: string
+): { regime: Regime; basis: string } {
   if (draft.targetKind === "EMPLOYEE") {
     return {
       regime: "R4",
       basis: "자사 임직원 — 사내 경조 규정 적용, 대외 규제 미적용",
     };
   }
-  const recipient = findRecipient(draft.targetId);
+  const recipient = findRecipient(tenantId, draft.targetId);
   if (recipient) {
     return { regime: recipient.regime, basis: recipient.basis };
   }
@@ -60,7 +60,7 @@ function resolveRegime(draft: RequestDraft): { regime: Regime; basis: string } {
 
 /** 2. 사내 규정 상한 산출 — 조건이 가장 구체적인 규정 한 줄을 고른다 */
 function matchRule(draft: RequestDraft, tenantId: string): PolicyRule | null {
-  const employee = findEmployee(draft.targetId);
+  const employee = findEmployee(tenantId, draft.targetId);
   const tier = employee ? rankTierOf(employee.rank) : null;
   const tenure = employee?.tenureMonths ?? 0;
 
@@ -84,8 +84,8 @@ function matchRule(draft: RequestDraft, tenantId: string): PolicyRule | null {
 }
 
 /** 동일 경조사 기발송 건수 (F9-1 이벤트키 대용) */
-function findDuplicate(draft: RequestDraft): number | null {
-  const hits = SENT_RECORDS.filter(
+function findDuplicate(draft: RequestDraft, tenantId: string): number | null {
+  const hits = dataOf(tenantId).sentRecords.filter(
     (r) => r.targetId === draft.targetId && r.eventTypeCode === draft.eventTypeCode
   );
   return hits.length > 0 ? hits.length : null;
@@ -98,10 +98,10 @@ export function decidePolicy(
   tenantId: string = DEFAULT_TENANT_ID
 ): PolicyDecision {
   const tenant = findTenant(tenantId);
-  const { regime, basis } = resolveRegime(draft);
+  const { regime, basis } = resolveRegime(draft, tenantId);
   const rule = matchRule(draft, tenantId);
-  const employee = findEmployee(draft.targetId);
-  const budget = findBudget(applicantCostCenter);
+  const employee = findEmployee(tenantId, draft.targetId);
+  const budget = findBudget(tenantId, applicantCostCenter);
 
   const internalLimit = rule?.wreathLimit ?? null;
   const legalLimit = regime === "R1" ? LEGAL_WREATH_LIMIT : null;
@@ -153,7 +153,7 @@ export function decidePolicy(
     });
   }
 
-  const duplicate = findDuplicate(draft);
+  const duplicate = findDuplicate(draft, tenantId);
   if (duplicate) {
     flags.push({
       code: "DUPLICATE",

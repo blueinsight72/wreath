@@ -15,22 +15,29 @@ import {
 import { ProductList } from "@/components/ProductList";
 import { saveDraft, useDraft } from "@/lib/draft";
 import { formatKRW } from "@/lib/format";
-import { CURRENT_USER, findEmployee, findRecipient, findVenue } from "@/lib/mock-data";
+import { findVenue } from "@/lib/mock-data";
+import { dataOf, findEmployee, findRecipient } from "@/lib/tenant-data";
+import { useCurrentTenant } from "@/lib/tenant-context";
 import { decideExecution, decidePolicy, recommendProducts } from "@/lib/policy";
 import { ACCOUNT_LABEL, REGIME_LABEL, type PolicyFlag } from "@/lib/types";
 
 export default function PolicyPage() {
   const router = useRouter();
+  const tenant = useCurrentTenant();
   const draft = useDraft();
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [showBasis, setShowBasis] = useState(false);
 
   const model = useMemo(() => {
     if (!draft) return null;
-    const decision = decidePolicy(draft, CURRENT_USER.costCenter);
+    const decision = decidePolicy(
+      draft,
+      dataOf(tenant.id).currentUser.costCenter,
+      tenant.id
+    );
     const { products, defaultId } = recommendProducts(decision, draft);
     return { decision, products, defaultId };
-  }, [draft]);
+  }, [draft, tenant.id]);
 
   if (!draft || !model) {
     return (
@@ -67,11 +74,11 @@ export default function PolicyPage() {
   const targetName =
     draft.targetKind === "EMPLOYEE"
       ? (() => {
-          const e = findEmployee(draft.targetId);
+          const e = findEmployee(tenant.id, draft.targetId);
           return e ? `${e.name} ${e.rank}` : "대상자 미지정";
         })()
       : (() => {
-          const r = findRecipient(draft.targetId);
+          const r = findRecipient(tenant.id, draft.targetId);
           return r ? `${r.name} · ${r.org}` : draft.manualTargetName || "수신자 미지정";
         })();
 

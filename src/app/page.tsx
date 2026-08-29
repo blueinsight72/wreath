@@ -1,5 +1,10 @@
+"use client";
+
 import Link from "next/link";
-import { CURRENT_USER } from "@/lib/mock-data";
+import { TenantSwitcher } from "@/components/TenantSwitcher";
+import { useCurrentTenant } from "@/lib/tenant-context";
+import { dataOf } from "@/lib/tenant-data";
+
 
 type Entry = {
   href: string;
@@ -70,6 +75,9 @@ const ENTRIES: Entry[] = [
 ];
 
 export default function Home() {
+  const tenant = useCurrentTenant();
+  const me = dataOf(tenant.id).currentUser;
+
   return (
     <div className="mx-auto w-full max-w-[520px] px-5 py-10">
       <p className="text-[12px] font-bold tracking-[0.14em] text-ink-3">
@@ -79,9 +87,12 @@ export default function Home() {
         경조사 화환 발송 관리
       </h1>
       <p className="mt-2 text-[14px] leading-relaxed text-ink-2">
-        {CURRENT_USER.company} · {CURRENT_USER.dept} {CURRENT_USER.name}{" "}
-        {CURRENT_USER.rank}님으로 로그인되어 있습니다.
+        {me.company} · {me.dept} {me.name} {me.rank}님으로 로그인되어 있습니다.
       </p>
+
+      <div className="mt-4">
+        <TenantSwitcher />
+      </div>
 
       <div className="mt-7 space-y-3">
         {ENTRIES.map((entry) =>

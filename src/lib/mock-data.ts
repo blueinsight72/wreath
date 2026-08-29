@@ -1,113 +1,12 @@
-// 목업 데이터 — 백엔드 연동 전까지 화면 검증용
+// 전 고객사 공통 목업 데이터 — 장례식장 · 상품 · 경조 유형 · 리본 문구.
+// 고객사별 데이터(임직원 · 예산 · 거래처 · 발신 명의)는 tenant-data.ts 에 있다.
 import type {
-  DeptBudget,
-  Employee,
   EventType,
-  ExternalRecipient,
   FuneralVenue,
   RelationType,
   ReligionType,
-  SenderCompany,
   WreathProduct,
 } from "./types";
-
-/** 현재 로그인 사용자 (임시 고정) */
-export const CURRENT_USER: Employee = {
-  id: "emp-001",
-  empNo: "20180311",
-  name: "김재현",
-  rank: "책임",
-  dept: "경영지원팀",
-  company: "제노㈜",
-  tenureMonths: 89,
-  costCenter: "CC-1200",
-};
-
-export const EMPLOYEES: Employee[] = [
-  CURRENT_USER,
-  { id: "emp-002", empNo: "20150102", name: "박세영", rank: "이사", dept: "영업본부", company: "제노㈜", tenureMonths: 128, costCenter: "CC-2100" },
-  { id: "emp-003", empNo: "20210715", name: "이도현", rank: "선임", dept: "플랫폼개발팀", company: "제노㈜", tenureMonths: 50, costCenter: "CC-3100" },
-  { id: "emp-004", empNo: "20190401", name: "최유진", rank: "책임", dept: "재무팀", company: "제노㈜", tenureMonths: 77, costCenter: "CC-1300" },
-  { id: "emp-005", empNo: "20230801", name: "정민석", rank: "사원", dept: "마케팅팀", company: "제노㈜", tenureMonths: 24, costCenter: "CC-2300" },
-  { id: "emp-006", empNo: "20120220", name: "한지수", rank: "상무", dept: "경영지원본부", company: "제노홀딩스㈜", tenureMonths: 162, costCenter: "CC-1000" },
-  { id: "emp-007", empNo: "20240115", name: "오현우", rank: "사원", dept: "고객성공팀", company: "제노㈜", tenureMonths: 19, costCenter: "CC-2400" },
-  { id: "emp-008", empNo: "20170905", name: "서나연", rank: "책임", dept: "구매팀", company: "제노㈜", tenureMonths: 95, costCenter: "CC-1400" },
-];
-
-export const EXTERNAL_RECIPIENTS: ExternalRecipient[] = [
-  {
-    id: "ext-001",
-    name: "강태호",
-    org: "한국조달공사",
-    position: "구매기획처장",
-    regime: "R1",
-    basis: "공직유관단체 임직원 (공공기관 지정 목록 확인)",
-    confirmedAt: "2026-06-12",
-    confirmedBy: "법무팀 윤성재",
-    officialScope: "SELF",
-    autoHint: "공공기관 지정 목록에서 한국조달공사 확인됨",
-  },
-  {
-    id: "ext-002",
-    name: "문혜린",
-    org: "대성일보",
-    position: "산업부 차장",
-    regime: "R1",
-    basis: "언론사 임직원",
-    confirmedAt: "2026-05-30",
-    confirmedBy: "법무팀 윤성재",
-    officialScope: "SELF",
-    autoHint: "언론사 목록에서 대성일보 확인됨",
-  },
-  {
-    id: "ext-003",
-    name: "임경섭",
-    org: "성모병원",
-    position: "정형외과 과장",
-    regime: "R2",
-    basis: "보건의료인 — 경제적 이익 제공 규제 검토 필요",
-    confirmedAt: "2026-04-18",
-    confirmedBy: "법무팀 윤성재",
-    officialScope: "SELF",
-    autoHint: "의료기관 종사자 — 법무 검토 대기",
-  },
-  {
-    id: "ext-004",
-    name: "노상현",
-    org: "대한물류㈜",
-    position: "물류본부 이사",
-    regime: "R3",
-    basis: "일반 사기업 임직원 — 사내 규정 및 접대비 처리",
-    confirmedAt: "2026-07-02",
-    confirmedBy: "구매팀 서나연",
-    officialScope: null,
-    autoHint: null,
-  },
-  {
-    id: "ext-005",
-    name: "백승주",
-    org: "미래테크㈜",
-    position: "대표이사",
-    regime: "R3",
-    basis: "일반 사기업 임직원",
-    confirmedAt: "2026-03-11",
-    confirmedBy: "구매팀 서나연",
-    officialScope: null,
-    autoHint: null,
-  },
-  {
-    id: "ext-006",
-    name: "황인철",
-    org: "성진대학교",
-    position: "산학협력단 팀장",
-    regime: "UNKNOWN",
-    basis: "학교법인 직원 여부 확인 중",
-    confirmedAt: null,
-    confirmedBy: null,
-    officialScope: null,
-    autoHint: "학교법인 여부 자동 판정 불가 — 사람 확인 필요",
-  },
-];
 
 export const EVENT_TYPES: EventType[] = [
   { code: "PARENT_DEATH", label: "부모상", category: "근조", available: true },
@@ -246,14 +145,6 @@ export const FUNERAL_VENUES: FuneralVenue[] = [
   },
 ];
 
-export function findEmployee(id: string | null) {
-  return EMPLOYEES.find((e) => e.id === id) ?? null;
-}
-
-export function findRecipient(id: string | null) {
-  return EXTERNAL_RECIPIENTS.find((r) => r.id === id) ?? null;
-}
-
 export function findVenue(id: string | null) {
   return FUNERAL_VENUES.find((v) => v.id === id) ?? null;
 }
@@ -285,60 +176,7 @@ export const WREATH_PRODUCTS: WreathProduct[] = [
   { id: "pd-r4", name: "근조기 (근조 현수기)", grade: "E", price: 80000, kind: "ALT", freshGuarantee: true, leadTimeHours: 2, desc: "화환 반입 거부 장소 대응" },
 ];
 
-export const DEPT_BUDGETS: DeptBudget[] = [
-  { costCenter: "CC-1200", deptName: "경영지원팀", allocated: 3000000, used: 2760000 },
-  { costCenter: "CC-2100", deptName: "영업본부", allocated: 6000000, used: 3100000 },
-  { costCenter: "CC-3100", deptName: "플랫폼개발팀", allocated: 2000000, used: 450000 },
-  { costCenter: "CC-1300", deptName: "재무팀", allocated: 2000000, used: 900000 },
-];
 
-/** 기발송 이력 — 중복 발송 검사용 (F9) */
-export interface SentRecord {
-  id: string;
-  targetId: string;
-  eventTypeCode: string;
-  senderTitle: string;
-  /** 부서명은 조회 권한 문제로 화면에서 마스킹된다 (F9-2, F13-2) */
-  senderDept: string;
-  sentAt: string;
-  amount: number;
-}
-
-export const SENT_RECORDS: SentRecord[] = [
-  {
-    id: "sr-001",
-    targetId: "emp-002",
-    eventTypeCode: "PARENT_DEATH",
-    senderTitle: "회사 명의",
-    senderDept: "경영지원팀",
-    sentAt: "2026-08-28 14:20",
-    amount: 300000,
-  },
-];
-
-export function findBudget(costCenter: string): DeptBudget {
-  return (
-    DEPT_BUDGETS.find((b) => b.costCenter === costCenter) ?? {
-      costCenter,
-      deptName: "미지정",
-      allocated: 0,
-      used: 0,
-    }
-  );
-}
-
-/* ── 발신 명의 (S3) ────────────────────────────────── */
-
-/** 소속 법인과 발신 명의 법인이 다른 케이스를 지원한다 (F4-1) */
-export const SENDER_COMPANIES: SenderCompany[] = [
-  { id: "co-zeno", name: "제노㈜", ceoName: "윤도현", holding: false },
-  { id: "co-holdings", name: "제노홀딩스㈜", ceoName: "윤재경", holding: true },
-  { id: "co-labs", name: "제노랩스㈜", ceoName: "서민호", holding: false },
-];
-
-export function findSenderCompany(id: string): SenderCompany {
-  return SENDER_COMPANIES.find((c) => c.id === id) ?? SENDER_COMPANIES[0];
-}
 
 /** 종교 · 예식 유형별 애도 문구 (F4-2) */
 export const RIBBON_PHRASES: Record<ReligionType, string[]> = {

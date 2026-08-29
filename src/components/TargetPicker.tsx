@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { EMPLOYEES, EXTERNAL_RECIPIENTS } from "@/lib/mock-data";
+import { dataOf } from "@/lib/tenant-data";
+import { useCurrentTenant } from "@/lib/tenant-context";
 import { REGIME_LABEL, type Employee, type ExternalRecipient } from "@/lib/types";
 import { Badge } from "./ui";
 
@@ -20,19 +21,20 @@ export function EmployeePicker({
   selected: Employee | null;
   onSelect: (employee: Employee | null) => void;
 }) {
+  const tenant = useCurrentTenant();
   const [query, setQuery] = useState("");
 
   const results = useMemo(() => {
     const q = query.trim();
     if (!q) return [];
-    return EMPLOYEES.filter(
+    return dataOf(tenant.id).employees.filter(
       (e) =>
         e.name.includes(q) ||
         e.empNo.includes(q) ||
         e.dept.includes(q) ||
         e.rank.includes(q)
     ).slice(0, 6);
-  }, [query]);
+  }, [query, tenant.id]);
 
   if (selected) {
     return (
@@ -100,16 +102,17 @@ export function RecipientPicker({
   onSelect: (recipient: ExternalRecipient | null) => void;
   onManualChange: (name: string, org: string) => void;
 }) {
+  const tenant = useCurrentTenant();
   const [query, setQuery] = useState("");
   const [manual, setManual] = useState(Boolean(manualName));
 
   const results = useMemo(() => {
     const q = query.trim();
     if (!q) return [];
-    return EXTERNAL_RECIPIENTS.filter(
+    return dataOf(tenant.id).recipients.filter(
       (r) => r.name.includes(q) || r.org.includes(q) || r.position.includes(q)
     ).slice(0, 6);
-  }, [query]);
+  }, [query, tenant.id]);
 
   if (selected) {
     return (

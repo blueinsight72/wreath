@@ -14,13 +14,9 @@ import {
   StepBar,
 } from "@/components/ui";
 import { saveDraft, useDraft } from "@/lib/draft";
-import {
-  EVENT_TYPES,
-  RELATION_TYPES,
-  findEmployee,
-  findRecipient,
-  findVenue,
-} from "@/lib/mock-data";
+import { EVENT_TYPES, RELATION_TYPES, findVenue } from "@/lib/mock-data";
+import { findEmployee, findRecipient } from "@/lib/tenant-data";
+import { useCurrentTenant } from "@/lib/tenant-context";
 import {
   EMPTY_DRAFT,
   RELIGION_LABEL,
@@ -36,6 +32,7 @@ type Errors = Partial<Record<keyof RequestDraft, string>>;
 export default function ApplyPage() {
   const router = useRouter();
 
+  const tenant = useCurrentTenant();
   const stored = useDraft();
   const [edits, setEdits] = useState<Partial<RequestDraft>>({});
   const [errors, setErrors] = useState<Errors>({});
@@ -51,9 +48,13 @@ export default function ApplyPage() {
 
   // 선택된 항목은 초안의 id에서 파생시킨다 — 별도 상태를 두면 프리필과 어긋난다
   const employee =
-    draft.targetKind === "EMPLOYEE" ? findEmployee(draft.targetId) : null;
+    draft.targetKind === "EMPLOYEE"
+      ? findEmployee(tenant.id, draft.targetId)
+      : null;
   const recipient =
-    draft.targetKind === "EXTERNAL" ? findRecipient(draft.targetId) : null;
+    draft.targetKind === "EXTERNAL"
+      ? findRecipient(tenant.id, draft.targetId)
+      : null;
   const venue = findVenue(draft.venueId);
   const setEmployee = (e: Employee | null) => patch({ targetId: e?.id ?? null });
   const setRecipient = (r: ExternalRecipient | null) =>
