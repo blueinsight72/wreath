@@ -11,7 +11,8 @@
     "db:pull": "drizzle-kit pull",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "email:registered": "node scripts/send-registered.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
