@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
   Button,
@@ -13,12 +13,42 @@ import {
 } from "@/components/ui";
 import { useDraft } from "@/lib/draft";
 import { formatDateTime, formatKRW } from "@/lib/format";
-import { WREATH_PRODUCTS, findVenue } from "@/lib/mock-data";
+import { WREATH_PRODUCTS, findEventType, findVenue } from "@/lib/mock-data";
 import { dataOf, findEmployee, findRecipient } from "@/lib/tenant-data";
 import { useCurrentTenant } from "@/lib/tenant-context";
 import { decideExecution, decidePolicy } from "@/lib/policy";
 import { buildRibbon } from "@/lib/ribbon";
-import { ACCOUNT_LABEL } from "@/lib/types";
+import { recordOrder, type RecordResult } from "@/lib/repo/order-repo";
+import { ACCOUNT_LABEL, type RequestDraft } from "@/lib/types";
+
+// 같은 초안으로 새로고침해도 발주가 두 건 생기면 안 된다.
+// 확정 화면은 한 번 기록하고, 그 결과를 초안에 묶어 기억한다.
+const RECORD_KEY = "zeno-cnd-recorded";
+
+function readRecorded(key: string): RecordResult | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(RECORD_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as { key: string; result: RecordResult };
+    return saved.key === key ? saved.result : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeRecorded(key: string, result: RecordResult) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(RECORD_KEY, JSON.stringify({ key, result }));
+  } catch {
+    // 저장에 실패해도 발주 자체는 이미 남았다 — 화면을 막지 않는다.
+  }
+}
+
+function draftKey(draft: RequestDraft) {
+  return JSON.stringify(draft);
+}
 
 /** 진행 상태 — 접수부터 정산까지 (F6-4, F7) */
 type StageState = "DONE" | "ACTIVE" | "PENDING";
@@ -36,13 +66,83 @@ export default function DonePage() {
   const draft = useDraft();
   const [cancelled, setCancelled] = useState(false);
 
+  const [recorded, setRecorded] = useState<RecordResult | null>(null);
+  const recordedRef = useRef(false);
+
   const model = useMemo(() => {
     if (!draft) return null;
     const decision = decidePolicy(draft, me.costCenter, tenant.id);
     const product = WREATH_PRODUCTS.find((p) => p.id === draft.productId) ?? null;
     const execution = decideExecution(decision, product);
-    return { decision, product, execution, ribbon: buildRibbon(draft, tenant.id) };
-  }, [draft, tenant.id, me.costCenter]);
+    const ribbon = buildRibbon(draft, tenant.id);
+
+    const targetName =
+      draft.targetKind === "EMPLOYEE"
+        ? (() => {
+            const e = findEmployee(tenant.id, draft.targetId);
+            return e ? `${e.name} ${e.rank}` : "대상자";
+          })()
+        : (() => {
+            const r = findRecipient(tenant.id, draft.targetId);
+            return r ? r.name : draft.manualTargetName || "수신자";
+          })();
+
+    const targetOrg =
+      draft.targetKind === "EMPLOYEE"
+        ? (findEmployee(tenant.id, draft.targetId)?.dept ?? "")
+        : (findRecipient(tenant.id, draft.targetId)?.org ?? draft.manualTargetOrg);
+
+    const venue = findVenue(draft.venueId);
+
+    return {
+      decision,
+      product,
+      execution,
+      ribbon,
+      targetName,
+      orderInput: {
+        applicantName: me.name,
+        applicantDept: me.dept,
+        targetLabel: targetName,
+        targetOrg,
+        eventTypeLabel: findEventType(draft.eventTypeCode)?.label ?? draft.eventTypeCode,
+        venueName: draft.venueUndecided
+          ? ""
+          : (venue?.name ?? draft.manualVenueName),
+        roomNo: draft.roomNo,
+        // 빈소 미정이면 조문 시각도 없다 — 없는 값을 지어내지 않는다.
+        visitAt: draft.venueUndecided || !draft.visitAt ? null : draft.visitAt,
+        productName: product?.name ?? "",
+        amount: product?.price ?? 0,
+        ribbonPhrase: ribbon.phrase,
+        ribbonSender: ribbon.sender,
+      },
+    };
+  }, [draft, tenant.id, me.costCenter, me.name, me.dept]);
+
+  // 이미 기록한 초안이면 그 결과를 그대로 보여준다 (새로고침 대비)
+  const cached = useMemo(
+    () => (draft ? readRecorded(draftKey(draft)) : null),
+    [draft],
+  );
+  const record = recorded ?? cached;
+
+  // 확정 시점에 발주 · 판정 근거 · 차단 로그를 남긴다.
+  // 이 기록이 없으면 통제 리포트에 제출할 증거가 없다.
+  useEffect(() => {
+    if (!draft || !model || recordedRef.current) return;
+    recordedRef.current = true;
+
+    const key = draftKey(draft);
+    if (readRecorded(key)) return;
+
+    recordOrder(tenant.id, model.orderInput, model.decision, model.execution).then(
+      (result) => {
+        setRecorded(result);
+        if (result.persisted) writeRecorded(key, result);
+      },
+    );
+  }, [draft, model, tenant.id]);
 
   if (!draft || !model) {
     return (
@@ -65,20 +165,9 @@ export default function DonePage() {
     );
   }
 
-  const { decision, product, execution, ribbon } = model;
+  const { decision, product, execution, ribbon, targetName } = model;
   const auto = execution.result === "AUTO_APPROVE";
   const venue = findVenue(draft.venueId);
-
-  const targetName =
-    draft.targetKind === "EMPLOYEE"
-      ? (() => {
-          const e = findEmployee(tenant.id, draft.targetId);
-          return e ? `${e.name} ${e.rank}` : "대상자";
-        })()
-      : (() => {
-          const r = findRecipient(tenant.id, draft.targetId);
-          return r ? r.name : draft.manualTargetName || "수신자";
-        })();
 
   const venueText = draft.venueUndecided
     ? "빈소 미정 — 확정 시 자동 재개"
@@ -110,7 +199,11 @@ export default function DonePage() {
   return (
     <MobileShell
       title={cancelled ? "신청이 취소되었습니다" : "신청이 접수되었습니다"}
-      subtitle={`신청번호 ZC-2608-0417 · ${targetName} 경조사`}
+      subtitle={
+        record?.orderId
+          ? `신청번호 ${record.orderId} · ${targetName} 경조사`
+          : `${targetName} 경조사`
+      }
       back={{ href: "/", label: "홈" }}
       footer={
         <div className="space-y-2">
@@ -130,6 +223,31 @@ export default function DonePage() {
       }
     >
       <StepBar current={4} total={4} />
+
+      {record?.error && (
+        <div className="mb-4">
+          <Callout tone="danger" title="기록에 실패했습니다">
+            {record.error} — 화면에는 접수로 보이지만 DB 에 남지 않았습니다.
+          </Callout>
+        </div>
+      )}
+
+      {record && !record.persisted && !record.error && (
+        <div className="mb-4">
+          <Callout tone="warn" title="이 건은 기록되지 않았습니다">
+            Supabase 가 설정되지 않아 화면에서만 처리되었습니다.
+          </Callout>
+        </div>
+      )}
+
+      {record?.blocked && record.persisted && (
+        <div className="mb-4">
+          <Callout tone="danger" title="발주가 차단되어 시도만 기록되었습니다">
+            법정 상한을 초과해 발주는 만들어지지 않았습니다. 이 시도는 통제
+            리포트의 차단 로그에 남습니다.
+          </Callout>
+        </div>
+      )}
 
       {cancelled ? (
         <Callout tone="danger" title="발주가 취소되었습니다">

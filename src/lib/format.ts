@@ -20,3 +20,15 @@ export function formatDateTime(value: string) {
   const min = String(d.getMinutes()).padStart(2, "0");
   return `${d.getMonth() + 1}월 ${d.getDate()}일(${days[d.getDay()]}) ${meridiem} ${h12}:${min}`;
 }
+
+/**
+ * DB 의 timestamptz 를 화면 표기로 — "2026-09-07 20:08".
+ * 목업이 쓰던 표기와 같은 모양으로 맞춰, 어느 쪽에서 온 값인지 화면에서 구분되지 않게 한다.
+ */
+export function formatTimestamp(value: string | null | undefined) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

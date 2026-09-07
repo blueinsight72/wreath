@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Button,
@@ -19,6 +19,7 @@ import { findVenue } from "@/lib/mock-data";
 import { dataOf, findEmployee, findRecipient } from "@/lib/tenant-data";
 import { useCurrentTenant } from "@/lib/tenant-context";
 import { decideExecution, decidePolicy, recommendProducts } from "@/lib/policy";
+import { recordBlockedAttempt } from "@/lib/repo/order-repo";
 import { ACCOUNT_LABEL, REGIME_LABEL, type PolicyFlag } from "@/lib/types";
 
 export default function PolicyPage() {
@@ -30,14 +31,48 @@ export default function PolicyPage() {
 
   const model = useMemo(() => {
     if (!draft) return null;
-    const decision = decidePolicy(
-      draft,
-      dataOf(tenant.id).currentUser.costCenter,
-      tenant.id
-    );
+    const me = dataOf(tenant.id).currentUser;
+    const decision = decidePolicy(draft, me.costCenter, tenant.id);
     const { products, defaultId } = recommendProducts(decision, draft);
-    return { decision, products, defaultId };
-  }, [draft, tenant.id]);
+
+    const selectedId = chosenId ?? defaultId;
+    const product = products.find((p) => p.id === selectedId) ?? null;
+
+    const targetName =
+      draft.targetKind === "EMPLOYEE"
+        ? (() => {
+            const e = findEmployee(tenant.id, draft.targetId);
+            return e ? `${e.name} ${e.rank}` : "대상자 미지정";
+          })()
+        : (() => {
+            const r = findRecipient(tenant.id, draft.targetId);
+            return r ? `${r.name} · ${r.org}` : draft.manualTargetName || "수신자 미지정";
+          })();
+
+    return {
+      decision,
+      products,
+      defaultId,
+      selectedId,
+      product,
+      execution: decideExecution(decision, product),
+      targetName,
+      applicantName: me.name,
+    };
+  }, [draft, tenant.id, chosenId]);
+
+  // 법정 상한 초과는 여기서 막힌다 — 확정 화면까지 가지 않으므로
+  // 시도 기록도 이 시점에 남긴다. 관리자도 해제할 수 없는 통제의 증거다.
+  useEffect(() => {
+    if (!model || model.execution.result !== "BLOCKED" || !model.product) return;
+    recordBlockedAttempt(tenant.id, {
+      applicantName: model.applicantName,
+      targetLabel: model.targetName,
+      regime: model.decision.regime,
+      attempted: model.product.price,
+      legalLimit: model.decision.legalLimit ?? 0,
+    });
+  }, [model, tenant.id]);
 
   if (!draft || !model) {
     return (
@@ -60,27 +95,14 @@ export default function PolicyPage() {
     );
   }
 
-  const { decision, products, defaultId } = model;
-  const selectedId = chosenId ?? defaultId;
-  const product = products.find((p) => p.id === selectedId) ?? null;
-  const execution = decideExecution(decision, product);
+  const { decision, products, defaultId, selectedId, product, execution, targetName } =
+    model;
 
   const venue = findVenue(draft.venueId);
   const venueBlocked = venue?.wreathAllowed === false;
   // R1 가액범위 안내는 상시 노출한다 (현금 경조금 병행 시 합산 한도 경고 포함)
   const legalCapFlag = decision.flags.find((f) => f.code === "LEGAL_CAP") ?? null;
   const remaining = decision.budget.allocated - decision.budget.used;
-
-  const targetName =
-    draft.targetKind === "EMPLOYEE"
-      ? (() => {
-          const e = findEmployee(tenant.id, draft.targetId);
-          return e ? `${e.name} ${e.rank}` : "대상자 미지정";
-        })()
-      : (() => {
-          const r = findRecipient(tenant.id, draft.targetId);
-          return r ? `${r.name} · ${r.org}` : draft.manualTargetName || "수신자 미지정";
-        })();
 
   return (
     <MobileShell

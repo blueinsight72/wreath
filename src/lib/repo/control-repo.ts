@@ -2,6 +2,7 @@
 
 // 통제 작동 리포트(S13) 데이터 접근 계층.
 // 법무 · 감사가 보는 것은 "위반이 없었다"가 아니라 "통제가 작동한 기록"이다.
+import { formatTimestamp } from "@/lib/format";
 import { ORDERS, type Order } from "@/lib/ops-data";
 import { getSupabase, type DataSource } from "@/lib/supabase";
 import { findTenant } from "@/lib/tenants";
@@ -185,7 +186,7 @@ export async function loadControlReport(
       regime: r.regime ?? "—",
       attempted: r.attempted,
       legalLimit: r.legal_limit,
-      attemptedAt: r.attempted_at,
+      attemptedAt: formatTimestamp(r.attempted_at),
     })),
     approvals: (approvalRes.data as ApprovalRow[]).map((r) => ({
       id: r.id,
@@ -193,7 +194,7 @@ export async function loadControlReport(
       approver: r.approver,
       verdict: r.verdict,
       reason: r.reason,
-      decidedAt: r.decided_at,
+      decidedAt: formatTimestamp(r.decided_at),
     })),
   };
 }
