@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge, Button, Callout, Card, DeskShell, Field, Stat } from "@/components/ui";
+import { DataSourceBadge } from "@/components/DataSourceBadge";
 import { FUNERAL_VENUES } from "@/lib/mock-data";
+import { loadVenues, saveVenueRule } from "@/lib/repo/venue-repo";
+import type { DataSource } from "@/lib/supabase";
 import type { FuneralVenue } from "@/lib/types";
 
 type Verification = FuneralVenue["verification"];
@@ -15,11 +18,27 @@ const VERIFICATION_LABEL: Record<Verification, string> = {
 
 export default function VenuesPage() {
   const [rows, setRows] = useState<FuneralVenue[]>(FUNERAL_VENUES);
+  const [source, setSource] = useState<DataSource>("MOCK");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftAllowed, setDraftAllowed] = useState<"YES" | "NO" | "UNKNOWN">(
     "UNKNOWN"
   );
   const [draftReason, setDraftReason] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    loadVenues().then((bundle) => {
+      if (!alive) return;
+      setRows(bundle.venues);
+      setSource(bundle.source);
+      setLoadError(bundle.error);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const needsReview = rows.filter(
     (v) => v.issueReports >= 3 || v.verification === "NEEDS_CHECK"
@@ -34,22 +53,22 @@ export default function VenuesPage() {
     setDraftReason(v.restrictionReason ?? "");
   };
 
-  const commit = (id: string) => {
-    setRows((prev) =>
-      prev.map((v) =>
-        v.id === id
-          ? {
-              ...v,
-              wreathAllowed:
-                draftAllowed === "YES" ? true : draftAllowed === "NO" ? false : null,
-              restrictionReason: draftReason.trim() || null,
-              verification: draftAllowed === "UNKNOWN" ? "NEEDS_CHECK" : "VERIFIED",
-              updatedAt: "2026-08-29",
-            }
-          : v
-      )
-    );
+  const commit = async (id: string) => {
+    const patch = {
+      wreathAllowed:
+        draftAllowed === "YES" ? true : draftAllowed === "NO" ? false : null,
+      restrictionReason: draftReason.trim() || null,
+      verification: (draftAllowed === "UNKNOWN"
+        ? "NEEDS_CHECK"
+        : "VERIFIED") as FuneralVenue["verification"],
+      updatedAt: new Date().toISOString().slice(0, 10),
+    };
+
+    setRows((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
     setEditingId(null);
+
+    // 저장에 실패하면 화면만 바뀌고 DB 는 그대로다 — 반드시 알려야 한다.
+    setSaveError(await saveVenueRule(id, patch));
   };
 
   return (
@@ -59,6 +78,22 @@ export default function VenuesPage() {
       back={{ href: "/", label: "홈" }}
       aside={<Button className="w-auto px-5">장례식장 등록</Button>}
     >
+      <div className="mb-4">
+        <DataSourceBadge source={source} />
+      </div>
+
+      {loadError && (
+        <Callout tone="warn" title="Supabase 연결 문제">
+          {loadError} — 목업 데이터로 표시하고 있습니다.
+        </Callout>
+      )}
+
+      {saveError && (
+        <Callout tone="danger" title="저장에 실패했습니다">
+          {saveError} — 화면의 값은 바뀌었지만 DB 에는 반영되지 않았습니다.
+        </Callout>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="등록 장례식장" value={`${rows.length}곳`} />
         <Stat

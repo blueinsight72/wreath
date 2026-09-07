@@ -5,6 +5,7 @@
 import { ORDERS, type Order } from "@/lib/ops-data";
 import { getSupabase, type DataSource } from "@/lib/supabase";
 import { findTenant } from "@/lib/tenants";
+import { resolveTenantUuid } from "./tenant-repo";
 
 /** 법정 상한 초과로 차단된 발주 시도 (F1-5) */
 export interface BlockedAttempt {
@@ -134,21 +135,28 @@ export async function loadControlReport(
   const supabase = getSupabase();
   if (!supabase) return mockReport(tenantId);
 
+  let uuid: string;
+  try {
+    uuid = await resolveTenantUuid(tenantId);
+  } catch (e) {
+    return mockReport(tenantId, (e as Error).message);
+  }
+
   const [blockedRes, approvalRes, versionRes] = await Promise.all([
     supabase
       .from("blocked_attempt")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", uuid)
       .order("attempted_at", { ascending: false }),
     supabase
       .from("approval_log")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", uuid)
       .order("decided_at", { ascending: false }),
     supabase
       .from("policy_version")
       .select("label, approved_at, approved_by")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", uuid)
       .eq("status", "ACTIVE")
       .maybeSingle(),
   ]);

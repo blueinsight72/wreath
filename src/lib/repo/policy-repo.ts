@@ -6,6 +6,7 @@
 import { WREATH_PRODUCTS } from "@/lib/mock-data";
 import { findTenant, rulesOf } from "@/lib/tenants";
 import { getSupabase, type DataSource } from "@/lib/supabase";
+import { resolveTenantUuid } from "./tenant-repo";
 import type { PolicyRule, RankTier, TargetKind, WreathProduct } from "@/lib/types";
 
 export type VersionStatus = "DRAFT" | "PENDING" | "ACTIVE" | "ARCHIVED";
@@ -162,16 +163,23 @@ export async function loadPolicies(tenantId: string): Promise<PolicyBundle> {
   const supabase = getSupabase();
   if (!supabase) return mockBundle(tenantId);
 
+  let uuid: string;
+  try {
+    uuid = await resolveTenantUuid(tenantId);
+  } catch (e) {
+    return mockBundle(tenantId, (e as Error).message);
+  }
+
   const [versionsRes, rulesRes, productsRes] = await Promise.all([
     supabase
       .from("policy_version")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", uuid)
       .order("created_at", { ascending: false }),
     supabase
       .from("policy_rule")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", uuid)
       .order("code"),
     supabase
       .from("wreath_product")
@@ -223,9 +231,16 @@ export async function saveRule(
   const supabase = getSupabase();
   if (!supabase) return null;
 
+  let uuid: string;
+  try {
+    uuid = await resolveTenantUuid(tenantId);
+  } catch (e) {
+    return (e as Error).message;
+  }
+
   const { error } = await supabase.from("policy_rule").upsert(
     {
-      tenant_id: tenantId,
+      tenant_id: uuid,
       version_id: versionId,
       code: input.code,
       event_type_code: input.eventTypeCode,
@@ -249,10 +264,17 @@ export async function deleteRule(
   const supabase = getSupabase();
   if (!supabase) return null;
 
+  let uuid: string;
+  try {
+    uuid = await resolveTenantUuid(tenantId);
+  } catch (e) {
+    return (e as Error).message;
+  }
+
   const { error } = await supabase
     .from("policy_rule")
     .delete()
-    .eq("tenant_id", tenantId)
+    .eq("tenant_id", uuid)
     .eq("version_id", versionId)
     .eq("code", code);
 
@@ -272,11 +294,18 @@ export async function activateVersion(
   const supabase = getSupabase();
   if (!supabase) return null;
 
+  let uuid: string;
+  try {
+    uuid = await resolveTenantUuid(tenantId);
+  } catch (e) {
+    return (e as Error).message;
+  }
+
   // 종료 처리는 반드시 같은 고객사 안에서만 일어나야 한다
   const archived = await supabase
     .from("policy_version")
     .update({ status: "ARCHIVED" })
-    .eq("tenant_id", tenantId)
+    .eq("tenant_id", uuid)
     .eq("status", "ACTIVE")
     .neq("id", versionId);
   if (archived.error) return archived.error.message;
@@ -295,6 +324,13 @@ export async function updateVersionStatus(
   const supabase = getSupabase();
   if (!supabase) return null;
 
+  let uuid: string;
+  try {
+    uuid = await resolveTenantUuid(tenantId);
+  } catch (e) {
+    return (e as Error).message;
+  }
+
   const patch: Record<string, unknown> = { status };
   if (approvedBy) patch.approved_by = approvedBy;
   if (approvedAt) patch.approved_at = approvedAt;
@@ -302,7 +338,7 @@ export async function updateVersionStatus(
   const { error } = await supabase
     .from("policy_version")
     .update(patch)
-    .eq("tenant_id", tenantId)
+    .eq("tenant_id", uuid)
     .eq("id", versionId);
 
   return error ? error.message : null;

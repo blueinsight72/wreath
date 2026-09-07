@@ -58,8 +58,12 @@ export const TENANTS: Tenant[] = [
 
 export const DEFAULT_TENANT_ID = TENANTS[0].id;
 
-export function findTenant(id: string | null | undefined): Tenant {
-  return TENANTS.find((t) => t.id === id) ?? TENANTS[0];
+/**
+ * 로컬 id (`tn-zeno`) 와 slug (`zeno`) 를 모두 받는다.
+ * DB 의 tenant.id 는 UUID 라 로컬 id 와 다르고, 두 세계를 잇는 건 slug 뿐이다.
+ */
+export function findTenant(key: string | null | undefined): Tenant {
+  return TENANTS.find((t) => t.id === key || t.slug === key) ?? TENANTS[0];
 }
 
 /* ── 고객사별 규정표 ──────────────────────────────────────── */
@@ -113,6 +117,6 @@ export const POLICY_RULES_BY_TENANT: Record<string, PolicyRule[]> = {
   "tn-mirae": MIRAE_RULES,
 };
 
-export function rulesOf(tenantId: string): PolicyRule[] {
-  return POLICY_RULES_BY_TENANT[tenantId] ?? [];
+export function rulesOf(key: string): PolicyRule[] {
+  return POLICY_RULES_BY_TENANT[findTenant(key).id] ?? [];
 }
