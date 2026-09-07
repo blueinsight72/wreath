@@ -9,8 +9,12 @@
 //
 // 법정 상한 초과는 발주를 만들지 않는다. 통제가 작동했다는 증거는 발주가 아니라
 // 차단 로그이므로, 이 경우 blocked_attempt 만 남기고 order_id 는 비워 둔다.
-import { getSupabase } from "@/lib/supabase";
-import type { ExecutionDecision, PolicyDecision } from "@/lib/types";
+//
+// 파일 아래쪽은 남긴 기록을 다시 꺼내 고치고 지우는 경로다 (총무 신청 내역 화면).
+import { formatTimestamp } from "@/lib/format";
+import { ORDERS, type Order, type OrderStatus } from "@/lib/ops-data";
+import { getSupabase, type DataSource } from "@/lib/supabase";
+import type { AccountCode, ExecutionDecision, PolicyDecision, Regime } from "@/lib/types";
 import { resolveTenantUuid } from "./tenant-repo";
 
 export interface OrderInput {
@@ -227,4 +231,274 @@ export async function recordOrder(
     persisted: true,
     error: snapshotError ? `판정 근거 기록 실패 — ${snapshotError.message}` : null,
   };
+}
+
+/* ── 조회 · 수정 · 삭제 (총무 신청 내역 화면) ──────────────── */
+
+// 여기부터는 남긴 기록을 다시 꺼내 고치는 경로다. 기록을 만드는 위쪽과 달리
+// 사람이 손으로 건드리는 자리이므로, 무엇이 함께 바뀌는지가 중요하다.
+//
+//   · 수정 — condolence_order 만 바꾼다. 판정 근거 스냅샷은 다시 쓰지 않는다.
+//            "그때 그 규정으로 그렇게 판정했다"는 사실은 지금 값과 무관하다.
+//   · 삭제 — 발주가 사라지면 판정 근거와 승인 이력도 함께 사라진다(on delete
+//            cascade). 차단 로그만 order_id 가 비워진 채 남는다. 감사 증거가
+//            같이 지워지는 일이므로 화면에서 그 사실을 알리고 확인을 받는다.
+
+interface OrderRow {
+  id: string;
+  created_at: string;
+  applicant_name: string;
+  applicant_dept: string | null;
+  target_label: string;
+  target_org: string | null;
+  regime: string;
+  event_type_label: string | null;
+  venue_name: string | null;
+  room_no: string | null;
+  visit_at: string | null;
+  product_name: string | null;
+  amount: number;
+  account: AccountCode;
+  internal_limit: number | null;
+  legal_limit: number | null;
+  ribbon_phrase: string | null;
+  ribbon_sender: string | null;
+  status: string;
+  supplier_ref: string | null;
+  supplier_name: string | null;
+  sla_remaining_min: number;
+  proof_required: boolean;
+  proof_photo: boolean;
+  venue_issue: boolean;
+  supplier_report_at: string | null;
+  supplier_report_reason: string | null;
+  accepted_in_min: number | null;
+  off_system: boolean;
+}
+
+/** 발주와 함께 남은 판정 근거 (F1-8) — 읽기 전용이다 */
+export interface DecisionRecord {
+  orderId: string;
+  versionLabel: string;
+  ruleCode: string | null;
+  conditions: Record<string, string>;
+  limitFormula: string | null;
+  regimeBasis: string | null;
+  decision: string;
+  decidedAt: string;
+}
+
+interface SnapshotRow {
+  order_id: string;
+  version_label: string;
+  rule_code: string | null;
+  conditions: Record<string, string> | null;
+  limit_formula: string | null;
+  regime_basis: string | null;
+  decision: string;
+  decided_at: string;
+}
+
+export interface OrderBundle {
+  source: DataSource;
+  /** 어느 고객사로 불러온 결과인지 — 전환 중 이전 응답이 늦게 도착해도 구분된다 */
+  tenantId: string;
+  orders: Order[];
+  /** 발주번호 → 판정 근거 */
+  snapshots: Record<string, DecisionRecord>;
+  error: string | null;
+}
+
+function toOrder(row: OrderRow): Order {
+  return {
+    id: row.id,
+    createdAt: formatTimestamp(row.created_at),
+    applicantName: row.applicant_name,
+    applicantDept: row.applicant_dept ?? "",
+    targetLabel: row.target_label,
+    targetOrg: row.target_org ?? "",
+    regime: row.regime as Regime,
+    eventTypeLabel: row.event_type_label ?? "",
+    venueName: row.venue_name || "빈소 미정",
+    roomNo: row.room_no ?? "",
+    visitAt: row.visit_at ?? "",
+    productName: row.product_name ?? "",
+    amount: row.amount,
+    account: row.account,
+    internalLimit: row.internal_limit,
+    legalLimit: row.legal_limit,
+    ribbonPhrase: row.ribbon_phrase ?? "",
+    ribbonSender: row.ribbon_sender ?? "",
+    status: row.status as OrderStatus,
+    supplierRef: row.supplier_ref,
+    supplierName: row.supplier_name,
+    // 승인 경로로 넘어간 사유는 판정 시점의 계산 결과라 표에 없다.
+    // 왜 그렇게 판정했는지는 판정 근거 스냅샷에서 읽는다.
+    approvalReasons: [],
+    slaRemainingMin: row.sla_remaining_min,
+    proofRequired: row.proof_required,
+    proofPhoto: row.proof_photo,
+    venueIssue: row.venue_issue,
+    supplierReport: row.supplier_report_at
+      ? {
+          reportedAt: formatTimestamp(row.supplier_report_at),
+          supplierName: row.supplier_name ?? "공급사",
+          reason: row.supplier_report_reason ?? "사유 미기재",
+        }
+      : null,
+    acceptedInMin: row.accepted_in_min,
+    offSystem: row.off_system,
+  };
+}
+
+function mockBundle(tenantId: string, error: string | null = null): OrderBundle {
+  // 발주 이력 목업은 제노㈜ 기준이라, 다른 고객사는 아직 집계 대상이 없다
+  return {
+    source: "MOCK",
+    tenantId,
+    orders: tenantId === "tn-zeno" ? ORDERS : [],
+    snapshots: {},
+    error,
+  };
+}
+
+export async function loadOrders(tenantKey: string): Promise<OrderBundle> {
+  const supabase = getSupabase();
+  if (!supabase) return mockBundle(tenantKey);
+
+  let uuid: string;
+  try {
+    uuid = await resolveTenantUuid(tenantKey);
+  } catch (e) {
+    return mockBundle(tenantKey, (e as Error).message);
+  }
+
+  const [orderRes, snapshotRes] = await Promise.all([
+    supabase
+      .from("condolence_order")
+      .select("*")
+      .eq("tenant_id", uuid)
+      .order("created_at", { ascending: false }),
+    supabase.from("policy_decision_snapshot").select("*").eq("tenant_id", uuid),
+  ]);
+
+  const failure = orderRes.error ?? snapshotRes.error;
+  if (failure) return mockBundle(tenantKey, `Supabase 조회 실패 — ${failure.message}`);
+
+  const snapshots: Record<string, DecisionRecord> = {};
+  for (const r of snapshotRes.data as SnapshotRow[]) {
+    snapshots[r.order_id] = {
+      orderId: r.order_id,
+      versionLabel: r.version_label,
+      ruleCode: r.rule_code,
+      conditions: r.conditions ?? {},
+      limitFormula: r.limit_formula,
+      regimeBasis: r.regime_basis,
+      decision: r.decision,
+      decidedAt: formatTimestamp(r.decided_at),
+    };
+  }
+
+  return {
+    source: "SUPABASE",
+    tenantId: tenantKey,
+    orders: (orderRes.data as OrderRow[]).map(toOrder),
+    snapshots,
+    error: null,
+  };
+}
+
+/** 화면에서 고칠 수 있는 값만 모은 것 — 금액 · 상태처럼 사람이 판단하는 항목이다 */
+export interface OrderPatch {
+  applicantName: string;
+  applicantDept: string;
+  targetLabel: string;
+  targetOrg: string;
+  regime: Regime;
+  eventTypeLabel: string;
+  venueName: string;
+  roomNo: string;
+  /** 조문 예정 시각 (timestamptz) — 비어 있으면 빈소 미정 */
+  visitAt: string | null;
+  productName: string;
+  amount: number;
+  status: OrderStatus;
+  ribbonPhrase: string;
+  ribbonSender: string;
+}
+
+export interface WriteResult {
+  ok: boolean;
+  error: string | null;
+}
+
+/** Supabase 가 없으면 고칠 대상 자체가 없다 — 성공한 척하지 않는다 */
+const NO_DB: WriteResult = {
+  ok: false,
+  error: "Supabase 가 설정되지 않아 목업을 보고 있습니다 — 수정 · 삭제할 대상이 없습니다.",
+};
+
+export async function updateOrder(
+  tenantKey: string,
+  orderId: string,
+  patch: OrderPatch,
+): Promise<WriteResult> {
+  const supabase = getSupabase();
+  if (!supabase) return NO_DB;
+
+  let uuid: string;
+  try {
+    uuid = await resolveTenantUuid(tenantKey);
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+
+  const { error } = await supabase
+    .from("condolence_order")
+    .update({
+      applicant_name: patch.applicantName,
+      applicant_dept: patch.applicantDept || null,
+      target_label: patch.targetLabel,
+      target_org: patch.targetOrg || null,
+      regime: patch.regime,
+      event_type_label: patch.eventTypeLabel || null,
+      venue_name: patch.venueName || null,
+      room_no: patch.roomNo || null,
+      visit_at: patch.visitAt,
+      product_name: patch.productName || null,
+      amount: patch.amount,
+      status: patch.status,
+      ribbon_phrase: patch.ribbonPhrase || null,
+      ribbon_sender: patch.ribbonSender || null,
+    })
+    .eq("id", orderId)
+    // 발주번호는 고객사마다 따로 매겨지므로 tenant_id 를 함께 건다.
+    // RLS 를 켜기 전까지 경계는 이 조건뿐이다.
+    .eq("tenant_id", uuid);
+
+  return { ok: !error, error: error ? error.message : null };
+}
+
+export async function deleteOrder(
+  tenantKey: string,
+  orderId: string,
+): Promise<WriteResult> {
+  const supabase = getSupabase();
+  if (!supabase) return NO_DB;
+
+  let uuid: string;
+  try {
+    uuid = await resolveTenantUuid(tenantKey);
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+
+  // 판정 근거 · 승인 이력은 cascade 로 함께 지워진다. 부르기 전에 확인을 받는다.
+  const { error } = await supabase
+    .from("condolence_order")
+    .delete()
+    .eq("id", orderId)
+    .eq("tenant_id", uuid);
+
+  return { ok: !error, error: error ? error.message : null };
 }

@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/admin", label: "대시보드", screen: "S9" },
+  // 접수된 신청을 그대로 펼쳐 놓는 자리. PRD 에 화면 번호가 없어 비워 둔다.
+  { href: "/admin/orders", label: "신청 내역", screen: null },
   { href: "/admin/recipients", label: "수신자 마스터", screen: "S10" },
   { href: "/admin/venues", label: "장례식장 DB", screen: "S11" },
   { href: "/admin/policies", label: "규정 관리", screen: "S12" },
@@ -30,9 +32,11 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
                     : "border-transparent text-ink-3 hover:text-ink"
                 }`}
               >
-                <span className="mr-1.5 font-mono text-[11px] opacity-60">
-                  {tab.screen}
-                </span>
+                {tab.screen && (
+                  <span className="mr-1.5 font-mono text-[11px] opacity-60">
+                    {tab.screen}
+                  </span>
+                )}
                 {tab.label}
               </Link>
             );
