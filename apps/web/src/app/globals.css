@@ -1,0 +1,6 @@
+/* 두 앱이 같은 테마를 쓴다. 정의는 @zeno/core 에 한 벌만 둔다. */
+@import "@zeno/core/globals.css";
+
+/* Tailwind 는 실행 디렉터리(이 앱) 아래만 자동으로 훑는다.
+   공유 컴포넌트의 클래스가 빠지지 않도록 core 를 스캔 대상에 넣는다. */
+@source "../../../../packages/core/src";

@@ -26,7 +26,7 @@ if (!url && needsDb) {
 
 export default defineConfig({
   dialect: "postgresql",
-  schema: "./src/db/schema.ts",
+  schema: "./packages/core/src/db/schema.ts",
   out: "./drizzle",
   dbCredentials: { url: url ?? "" },
   // auth · storage 등 Supabase 내부 스키마는 건드리지 않는다.

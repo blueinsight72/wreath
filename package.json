@@ -2,11 +2,19 @@
   "name": "wreath",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
+    "dev": "npm run dev -w @zeno/web",
+    "dev:web": "npm run dev -w @zeno/web",
+    "dev:admin": "npm run dev -w @zeno/admin",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build -w @zeno/web",
+    "build:admin": "npm run build -w @zeno/admin",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
     "db:generate": "drizzle-kit generate",
@@ -15,22 +23,10 @@
     "email:registered": "node scripts/send-registered.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.4",
-    "drizzle-orm": "^0.45.2",
-    "next": "16.3.3",
-    "postgres": "^3.4.9",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.10",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.3",
-    "tailwindcss": "^4",
     "typescript": "^5"
   }
 }
