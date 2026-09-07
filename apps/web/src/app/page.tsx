@@ -7,8 +7,15 @@ import { dataOf } from "@zeno/core/lib/tenant-data";
 
 
 // 백오피스는 이제 별도 앱(@zeno/admin)이다. 배포 도메인이 다르므로 앱 안의
-// 라우트가 아니라 절대 URL 로 나간다. 값이 없으면 로컬 개발 포트로 둔다.
-const ADMIN_URL = process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3001";
+// 라우트가 아니라 절대 URL 로 나간다.
+//
+// 기본값이 둘인 이유: 개발 중에는 옆 포트로, 배포본에서는 실제 백오피스로 가야
+// 한다. 커스텀 도메인이 생기면 NEXT_PUBLIC_ADMIN_URL 로 덮어쓴다.
+const ADMIN_URL =
+  process.env.NEXT_PUBLIC_ADMIN_URL ??
+  (process.env.NODE_ENV === "production"
+    ? "https://wreath-admin-hazel.vercel.app"
+    : "http://localhost:3001");
 
 type Entry = {
   href: string;

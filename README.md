@@ -67,7 +67,9 @@ Next 는 **자기 디렉터리의** `.env.local` 만 읽습니다. 루트 파일
 
 각 디렉터리의 `.env.example` 을 복사해 채우십시오. `NEXT_PUBLIC_ADMIN_URL` 은
 web 홈 화면이 백오피스로 나가는 링크에 씁니다 — 앱이 분리되어 있으므로 앱 안의
-라우트가 아니라 절대 URL 입니다.
+라우트가 아니라 절대 URL 입니다. 비워 두면 개발 중에는 `localhost:3001`,
+배포본에서는 현재 백오피스 도메인으로 갑니다(`apps/web/src/app/page.tsx`).
+커스텀 도메인을 붙이면 이 변수로 덮어쓰십시오.
 
 ## 데이터베이스 (Supabase + Drizzle)
 
@@ -146,7 +148,7 @@ Root Directory 를 지정하면 Vercel 이 워크스페이스를 인식해 루�
 |---|---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | 예 | 예 | 브라우저 — 모든 화면 |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 예 | 예 | 브라우저 — 모든 화면 |
-| `NEXT_PUBLIC_ADMIN_URL` | 예 | — | 홈 화면의 백오피스 링크 (admin 배포 URL) |
+| `NEXT_PUBLIC_ADMIN_URL` | 선택 | — | 홈 화면의 백오피스 링크. 없으면 코드의 배포 기본값 |
 | `DATABASE_URL` | 아니오 | 아니오 | 로컬 도구(`db:*`) · `scripts/` 전용 |
 | `RESEND_API_KEY` | 아니오 | 아니오 | `npm run email:registered` 전용 |
 
@@ -163,7 +165,7 @@ Root Directory 를 지정하면 Vercel 이 워크스페이스를 인식해 루�
 2. Root Directory 를 `apps/web` 으로 지정, Framework 는 Next.js 자동 인식
 3. Environment Variables 에 위 표의 web 열을 넣고 Deploy
 4. 같은 저장소로 프로젝트를 하나 더 만들어 Root Directory 를 `apps/admin` 으로
-5. admin 배포 URL 이 나오면 web 프로젝트의 `NEXT_PUBLIC_ADMIN_URL` 에 넣고 재배포
+5. 커스텀 도메인을 붙였다면 web 프로젝트의 `NEXT_PUBLIC_ADMIN_URL` 에 그 주소를 넣고 재배포
 
 CLI 로 하려면 (`vercel login` 은 브라우저 인증이 필요합니다) 각 앱 디렉터리에서
 
