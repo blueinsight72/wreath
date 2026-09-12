@@ -10,21 +10,31 @@
 //
 // Supabase 가 설정되지 않았으면 그냥 통과시킨다. 목업으로 도는 화면에는
 // 로그인시킬 대상도, 가릴 데이터도 없다.
+//
+// 문구는 앱이 넘긴다. web 과 admin 은 쓰는 사람이 다르므로 같은 안내를 쓸 수
+// 없다. 공유하는 것은 폼과 세션 처리이지 copy 가 아니다.
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { signIn, useAuth } from "../lib/auth";
 import { Button, Callout, Card, Field } from "./ui";
 
-export function AuthGate({ children }: { children: ReactNode }) {
+export interface AuthGateCopy {
+  title: string;
+  subtitle?: ReactNode;
+  /** 폼 아래 안내 — 계정 발급처 같은 것 */
+  hint?: ReactNode;
+}
+
+export function AuthGate({ children, ...copy }: AuthGateCopy & { children: ReactNode }) {
   const auth = useAuth();
 
   if (auth.status === "UNCONFIGURED" || auth.status === "SIGNED_IN") return <>{children}</>;
   // 저장된 세션을 읽는 찰나에 로그인 폼을 띄우면 매 새로고침마다 깜빡인다.
   if (auth.status === "LOADING") return null;
-  return <SignInScreen />;
+  return <SignInScreen {...copy} />;
 }
 
-function SignInScreen() {
+function SignInScreen({ title, subtitle, hint }: AuthGateCopy) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -45,10 +55,10 @@ function SignInScreen() {
   return (
     <div className="flex min-h-dvh items-center justify-center px-5 py-12">
       <div className="w-full max-w-[360px]">
-        <h1 className="text-[19px] font-bold text-ink">ZENO 경조사 운영 백오피스</h1>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
-          총무 · 감사 · 법무가 쓰는 화면입니다. 소속 고객사의 자료만 보입니다.
-        </p>
+        <h1 className="text-[19px] font-bold text-ink">{title}</h1>
+        {subtitle && (
+          <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">{subtitle}</p>
+        )}
 
         <Card className="mt-5">
           <form onSubmit={submit} className="flex flex-col gap-3.5">
@@ -79,10 +89,7 @@ function SignInScreen() {
           </form>
         </Card>
 
-        <p className="mt-4 text-[12px] leading-relaxed text-ink-3">
-          계정은 Supabase 대시보드 &gt; Authentication 에서 발급합니다. 발급 후
-          tenant_member 에 소속 고객사를 넣어야 자료가 보입니다.
-        </p>
+        {hint && <p className="mt-4 text-[12px] leading-relaxed text-ink-3">{hint}</p>}
       </div>
     </div>
   );
