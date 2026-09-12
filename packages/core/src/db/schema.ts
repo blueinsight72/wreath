@@ -351,6 +351,32 @@ export const approvalLog = pgTable(
   ],
 );
 
+/**
+ * 발주 건별 메모 (관리자 화면) — 총무가 남기는 업무 기록.
+ * 감사 증거와 달리 작성자가 고치고 지울 수 있다. 발주가 지워지면 함께 사라진다.
+ */
+export const orderMemo = pgTable(
+  "order_memo",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenant.id, { onDelete: "cascade" }),
+    orderId: text("order_id")
+      .notNull()
+      .references(() => condolenceOrder.id, { onDelete: "cascade" }),
+    author: text("author").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // 트리거가 없으므로 수정할 때 코드에서 직접 채운다.
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("order_memo_order").on(t.tenantId, t.orderId, t.createdAt.desc()),
+    check("order_memo_body_check", sql`length(btrim(${t.body})) > 0`),
+  ],
+);
+
 // ────────────────────────────────────────────────────────────
 // 행 타입 — 서버 코드에서 재사용한다
 // ────────────────────────────────────────────────────────────
@@ -366,7 +392,9 @@ export type CondolenceOrder = typeof condolenceOrder.$inferSelect;
 export type PolicyDecisionSnapshot = typeof policyDecisionSnapshot.$inferSelect;
 export type BlockedAttempt = typeof blockedAttempt.$inferSelect;
 export type ApprovalLog = typeof approvalLog.$inferSelect;
+export type OrderMemo = typeof orderMemo.$inferSelect;
 
 export type NewCondolenceOrder = typeof condolenceOrder.$inferInsert;
 export type NewApprovalLog = typeof approvalLog.$inferInsert;
 export type NewBlockedAttempt = typeof blockedAttempt.$inferInsert;
+export type NewOrderMemo = typeof orderMemo.$inferInsert;

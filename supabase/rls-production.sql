@@ -20,7 +20,7 @@ begin
   foreach t in array array[
     'tenant', 'tenant_member', 'policy_version', 'policy_rule', 'wreath_product',
     'external_recipient', 'funeral_venue', 'condolence_order',
-    'policy_decision_snapshot', 'blocked_attempt', 'approval_log'
+    'policy_decision_snapshot', 'blocked_attempt', 'approval_log', 'order_memo'
   ]
   loop
     execute format('drop policy if exists prototype_all on %I;', t);
@@ -59,7 +59,8 @@ do $$
 declare t text;
 begin
   foreach t in array array[
-    'policy_version', 'policy_rule', 'external_recipient', 'condolence_order'
+    'policy_version', 'policy_rule', 'external_recipient', 'condolence_order',
+    'order_memo'
   ]
   loop
     execute format(

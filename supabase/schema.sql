@@ -230,6 +230,22 @@ create table if not exists approval_log (
   decided_at timestamptz not null default now()
 );
 
+-- 발주 건별 메모 (관리자 화면) — 총무가 남기는 업무 기록.
+-- 감사 증거(판정 스냅샷 · 차단 로그 · 승인 이력)와 달리 작성자가 고치고 지울 수 있다.
+-- 발주가 지워지면 메모도 함께 사라진다 — 붙어 있을 곳이 없는 기록이므로.
+create table if not exists order_memo (
+  id         uuid primary key default gen_random_uuid(),
+  tenant_id  uuid not null references tenant(id) on delete cascade,
+  order_id   text not null references condolence_order(id) on delete cascade,
+  author     text not null,
+  body       text not null check (length(btrim(body)) > 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists order_memo_order
+  on order_memo (tenant_id, order_id, created_at desc);
+
 -- ────────────────────────────────────────────────────────────
 -- 4. RLS — 프로토타입 정책
 -- ────────────────────────────────────────────────────────────
@@ -243,7 +259,7 @@ begin
   foreach t in array array[
     'tenant', 'tenant_member', 'policy_version', 'policy_rule', 'wreath_product',
     'external_recipient', 'funeral_venue', 'condolence_order',
-    'policy_decision_snapshot', 'blocked_attempt', 'approval_log'
+    'policy_decision_snapshot', 'blocked_attempt', 'approval_log', 'order_memo'
   ]
   loop
     execute format('alter table %I enable row level security;', t);
