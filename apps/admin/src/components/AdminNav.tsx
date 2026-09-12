@@ -4,6 +4,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { signOut, useAuth } from "@zeno/core/lib/auth";
+
 const TABS = [
   { href: "/", label: "대시보드", screen: "S9" },
   // 접수된 신청을 그대로 펼쳐 놓는 자리. PRD 에 화면 번호가 없어 비워 둔다.
@@ -16,6 +18,7 @@ const TABS = [
 
 export function AdminNav() {
   const pathname = usePathname();
+  const auth = useAuth();
 
   return (
     <nav className="border-b border-line bg-surface">
@@ -41,6 +44,19 @@ export function AdminNav() {
             </Link>
           );
         })}
+
+        {auth.status === "SIGNED_IN" && (
+          <div className="ml-auto flex shrink-0 items-center gap-2.5 self-center">
+            <span className="hidden text-[12px] text-ink-3 sm:inline">{auth.email}</span>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="rounded-md border border-line px-2.5 py-1 text-[12px] font-semibold text-ink-3 transition hover:text-ink"
+            >
+              로그아웃
+            </button>
+          </div>
+        )}
       </div>
     </nav>
   );
